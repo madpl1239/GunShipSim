@@ -1,0 +1,8 @@
+# .gitignore for helisim
+# 01-2026 by madpl
+
+# folders
+/build/
+
+# files
+/helisim
