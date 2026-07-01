@@ -1,0 +1,2 @@
+/home/madpl/cprogs/SFMLTutorials/GunShipSim/build/CMakeFiles/edit_cache.dir
+/home/madpl/cprogs/SFMLTutorials/GunShipSim/build/CMakeFiles/rebuild_cache.dir
