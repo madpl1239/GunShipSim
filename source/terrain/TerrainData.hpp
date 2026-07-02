@@ -43,6 +43,7 @@ public:
 	
 	float getHeightAtGrid(int x, int z) const;
 	float getHeightAtWorld(float worldX, float worldZ) const;
+	float getHeightAtWorldPosition(float worldX, float worldZ) const;
 	
 	float getWorldSizeX() const;
 	float getWorldSizeZ() const;

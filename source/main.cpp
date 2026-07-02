@@ -1,18 +1,21 @@
 /*
  * main.cpp
- * 
+ *
  * GunShip Simulator.
- * 
+ *
  * 02-07-2026 by madpl
  */
 #include <iostream>
+#include <cmath>
 #include <GL/glew.h>
 #include <SFML/Window.hpp>
 #include <SFML/OpenGL.hpp>
+#include <SFML/System/Clock.hpp>
 #include <terrain/HGTLoader.hpp>
 #include <terrain/TerrainData.hpp>
 #include <terrain/TerrainRenderer.hpp>
 #include <camera/Camera.hpp>
+#include <helicopter/Helicopter.hpp>
 
 
 int main(void)
@@ -78,16 +81,26 @@ int main(void)
 		return -1;
 	}
 	
+	Helicopter helicopter;
+	helicopter.setPosition(0.0f, terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 8.0f, 0.0f);
+	helicopter.setYawDegrees(0.0f);
+	
 	Camera camera;
 	camera.setPerspective(60.0f, 1280.0f / 720.0f, 1.0f, 100000.0f);
-	camera.setPosition(0.0f, 12000.0f, 18000.0f);
-	camera.setTarget(0.0f, 0.0f, 0.0f);
 	camera.updateMatrices();
+	
+	sf::Clock frameClock;
+	float debugTimer = 0.0f;
 	
 	bool running = true;
 	
 	while(running)
 	{
+		float dt = frameClock.restart().asSeconds();
+		
+		if(dt > 0.1f)
+			dt = 0.1f;
+		
 		sf::Event event;
 		while(window.pollEvent(event))
 		{
@@ -96,53 +109,63 @@ int main(void)
 				running = false;
 			}
 			
-			if(event.type == sf::Event::KeyPressed)
+			else if(event.type == sf::Event::KeyPressed)
 			{
 				if(event.key.code == sf::Keyboard::Escape)
 					running = false;
-				
-				else if(event.key.code == sf::Keyboard::Up)
-				{
-					camera.move(0.0f, 0.0f, -100.0f);
-					camera.moveTarget(0.0f, 0.0f, -100.0f);
-				}
-				
-				else if(event.key.code == sf::Keyboard::Down)
-				{
-					camera.move(0.0f, 0.0f, 100.0f);
-					camera.moveTarget(0.0f, 0.0f, 100.0f);
-				}
-				
-				else if(event.key.code == sf::Keyboard::Left)
-				{
-					camera.move(-100.0f, 0.0f, 0.0f);
-					camera.moveTarget(-100.0f, 0.0f, 0.0f);
-				}
-				
-				else if(event.key.code == sf::Keyboard::Right)
-				{
-					camera.move(100.0f, 0.0f, 0.0f);
-					camera.moveTarget(100.0f, 0.0f, 0.0f);
-				}
-				
-				else if(event.key.code == sf::Keyboard::PageUp)
-					camera.move(0.0f, 100.0f, 0.0f);
-				
-				else if(event.key.code == sf::Keyboard::PageDown)
-					camera.move(0.0f, -100.0f, 0.0f);
-				
-				camera.updateMatrices();
 			}
 			
-			if(event.type == sf::Event::Resized)
+			else if(event.type == sf::Event::Resized)
 			{
 				glViewport(0, 0, static_cast<GLsizei>(event.size.width),
 						   static_cast<GLsizei>(event.size.height));
 				
 				float aspect = static_cast<float>(event.size.width) / static_cast<float>(event.size.height);
-				camera.setPerspective(60.0f, aspect, 1.0f, 50000.0f);
-				camera.updateMatrices();
+				
+				camera.setPerspective(60.0f, aspect, 1.0f, 100000.0f);
 			}
+		}
+		
+		helicopter.update(dt, terrain);
+		
+		const float pi = 3.1415926535f;
+		float yawRadians = helicopter.getYawDegrees() * pi / 180.0f;
+		
+		float forwardX = std::sin(yawRadians);
+		float forwardZ = -std::cos(yawRadians);
+		
+		float camDistance = 120.0f;
+		float camHeight = 45.0f;
+		
+		float camX = helicopter.getX() - forwardX * camDistance;
+		float camY = helicopter.getY() + camHeight;
+		float camZ = helicopter.getZ() - forwardZ * camDistance;
+		
+		float targetX = helicopter.getX() + forwardX * 60.0f;
+		float targetY = helicopter.getY() + 2.0f;
+		float targetZ = helicopter.getZ() + forwardZ * 60.0f;
+		
+		camera.setPosition(camX, camY, camZ);
+		camera.setTarget(targetX, targetY, targetZ);
+		camera.updateMatrices();
+		
+		debugTimer += dt;
+		if(debugTimer >= 0.5f)
+		{
+			debugTimer = 0.0f;
+			
+			float terrainHeight = terrain.getHeightAtWorldPosition(helicopter.getX(),
+																   helicopter.getZ());
+			
+			std::cout << "Heli pos = ("
+			<< helicopter.getX() << ", "
+			<< helicopter.getY() << ", "
+			<< helicopter.getZ() << ")  "
+			<< "terrainY = " << terrainHeight << "  "
+			<< "AGL = " << helicopter.getAltitudeAboveGround() << "  "
+			<< "speed = " << helicopter.getSpeed() << "  "
+			<< "yaw = " << helicopter.getYawDegrees()
+			<< "\n";
 		}
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

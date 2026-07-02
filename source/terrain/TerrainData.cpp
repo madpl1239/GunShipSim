@@ -212,6 +212,44 @@ float TerrainData::getHeightAtWorld(float worldX, float worldZ) const
 }
 
 
+float TerrainData::getHeightAtWorldPosition(float worldX, float worldZ) const
+{
+	if(m_heights.empty() or m_width <= 1 or m_height <= 1 or m_missionSizeMeters <= 0.0f)
+		return 0.0f;
+	
+	const float halfSize = m_missionSizeMeters * 0.5f;
+	
+	float u = (worldX + halfSize) / m_missionSizeMeters;
+	float v = (worldZ + halfSize) / m_missionSizeMeters;
+	
+	u = std::clamp(u, 0.0f, 1.0f);
+	v = std::clamp(v, 0.0f, 1.0f);
+	
+	float gridX = u * static_cast<float>(m_width - 1);
+	float gridZ = v * static_cast<float>(m_height - 1);
+	
+	int x0 = static_cast<int>(std::floor(gridX));
+	int z0 = static_cast<int>(std::floor(gridZ));
+	
+	int x1 = std::min(x0 + 1, m_width - 1);
+	int z1 = std::min(z0 + 1, m_height - 1);
+	
+	float tx = gridX - static_cast<float>(x0);
+	float tz = gridZ - static_cast<float>(z0);
+	
+	float h00 = m_heights[static_cast<std::size_t>(z0 * m_width + x0)];
+	float h10 = m_heights[static_cast<std::size_t>(z0 * m_width + x1)];
+	float h01 = m_heights[static_cast<std::size_t>(z1 * m_width + x0)];
+	float h11 = m_heights[static_cast<std::size_t>(z1 * m_width + x1)];
+	
+	float hx0 = h00 + (h10 - h00) * tx;
+	float hx1 = h01 + (h11 - h01) * tx;
+	float h = hx0 + (hx1 - hx0) * tz;
+	
+	return h;
+}
+
+
 float TerrainData::getWorldSizeX() const
 {
 	return m_missionSizeMeters;
