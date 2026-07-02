@@ -34,11 +34,13 @@ void TerrainData::clear()
 
 bool TerrainData::buildFromHGT(const std::vector<int16_t>& sourceSamples,
 							   int sourceWidth, int sourceHeight,
+							   float tileSouthLat, float tileWestLon,
+							   float missionCenterLat, float missionCenterLon,
 							   float missionSizeMeters, int targetResolution)
 {
 	clear();
 	
-	if(sourceSamples.empty() or sourceWidth <= 1 || sourceHeight <= 1)
+	if(sourceSamples.empty() or sourceWidth <= 1 or sourceHeight <= 1)
 		return false;
 	
 	if(static_cast<std::size_t>(sourceWidth * sourceHeight) != sourceSamples.size())
@@ -54,10 +56,41 @@ bool TerrainData::buildFromHGT(const std::vector<int16_t>& sourceSamples,
 	
 	m_heights.resize(static_cast<std::size_t>(m_width * m_height), 0.0f);
 	
-	const float srcMinU = 0.0f;
-	const float srcMaxU = 1.0f;
-	const float srcMinV = 0.0f;
-	const float srcMaxV = 1.0f;
+	const float tileNorthLat = tileSouthLat + 1.0f;
+	const float tileEastLon = tileWestLon + 1.0f;
+	
+	const float halfMissionSizeMeters = missionSizeMeters * 0.5f;
+	
+	const float pi = 3.1415926535f;
+	const float missionCenterLatRad = missionCenterLat * pi / 180.0f;
+	
+	const float metersPerDegreeLat = 111111.0f;
+	const float metersPerDegreeLon = 111111.0f * std::cos(missionCenterLatRad);
+	
+	if(metersPerDegreeLon <= 0.0001f)
+		return false;
+	
+	const float deltaLat = halfMissionSizeMeters / metersPerDegreeLat;
+	const float deltaLon = halfMissionSizeMeters / metersPerDegreeLon;
+	
+	const float cropSouthLat = missionCenterLat - deltaLat;
+	const float cropNorthLat = missionCenterLat + deltaLat;
+	const float cropWestLon = missionCenterLon - deltaLon;
+	const float cropEastLon = missionCenterLon + deltaLon;
+	
+	float cropMinU = (cropWestLon - tileWestLon) / (tileEastLon - tileWestLon);
+	float cropMaxU = (cropEastLon - tileWestLon) / (tileEastLon - tileWestLon);
+	
+	float cropMinV = (tileNorthLat - cropNorthLat) / (tileNorthLat - tileSouthLat);
+	float cropMaxV = (tileNorthLat - cropSouthLat) / (tileNorthLat - tileSouthLat);
+	
+	cropMinU = std::clamp(cropMinU, 0.0f, 1.0f);
+	cropMaxU = std::clamp(cropMaxU, 0.0f, 1.0f);
+	cropMinV = std::clamp(cropMinV, 0.0f, 1.0f);
+	cropMaxV = std::clamp(cropMaxV, 0.0f, 1.0f);
+	
+	if(cropMinU >= cropMaxU or cropMinV >= cropMaxV)
+		return false;
 	
 	for(int z = 0; z < m_height; ++z)
 	{
@@ -67,16 +100,18 @@ bool TerrainData::buildFromHGT(const std::vector<int16_t>& sourceSamples,
 		{
 			float u = (m_width == 1) ? 0.0f : static_cast<float>(x) / static_cast<float>(m_width - 1);
 			
+			float sourceU = cropMinU + u * (cropMaxU - cropMinU);
+			float sourceV = cropMinV + v * (cropMaxV - cropMinV);
+			
 			float sourceHeightValue = sampleSourceAtNormalized(sourceSamples, sourceWidth, sourceHeight,
-																srcMinU + u * (srcMaxU - srcMinU),
-																srcMinV + v * (srcMaxV - srcMinV));
+															   sourceU, sourceV);
 			
 			m_heights[static_cast<std::size_t>(z * m_width + x)] = sourceHeightValue;
 		}
 	}
 	
 	auto minmax = std::minmax_element(m_heights.begin(), m_heights.end());
-	if(minmax.first != m_heights.end() and minmax.second != m_heights.end())
+	if(minmax.first != m_heights.end() && minmax.second != m_heights.end())
 	{
 		m_minHeight = *minmax.first;
 		m_maxHeight = *minmax.second;

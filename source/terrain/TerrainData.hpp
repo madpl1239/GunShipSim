@@ -25,8 +25,10 @@ public:
 	void clear();
 	
 	bool buildFromHGT(const std::vector<int16_t>& sourceSamples,
-					  int sourceWidth, int sourceHeight,
-					  float missionSizeMeters, int targetResolution);
+						int sourceWidth, int sourceHeight,
+						float tileSouthLat, float tileWestLon,
+						float missionCenterLat, float missionCenterLon,
+						float missionSizeMeters, int targetResolution);
 	
 	bool isValid() const;
 	

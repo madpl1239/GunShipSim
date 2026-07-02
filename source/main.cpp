@@ -58,8 +58,12 @@ int main(void)
 		return -1;
 	}
 	
+	std::cout << "rawData.width = " << rawData.width << "\n";
+	std::cout << "rawData.height = " << rawData.height << "\n";
+	
 	TerrainData terrain;
-	if(not terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height, 12000.0f, 256))
+	if(not terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
+								34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data\n";
 		
@@ -99,33 +103,33 @@ int main(void)
 				
 				else if(event.key.code == sf::Keyboard::Up)
 				{
-					camera.move(0.0f, 0.0f, -500.0f);
-					camera.moveTarget(0.0f, 0.0f, -500.0f);
+					camera.move(0.0f, 0.0f, -100.0f);
+					camera.moveTarget(0.0f, 0.0f, -100.0f);
 				}
 				
 				else if(event.key.code == sf::Keyboard::Down)
 				{
-					camera.move(0.0f, 0.0f, 500.0f);
-					camera.moveTarget(0.0f, 0.0f, 500.0f);
+					camera.move(0.0f, 0.0f, 100.0f);
+					camera.moveTarget(0.0f, 0.0f, 100.0f);
 				}
 				
 				else if(event.key.code == sf::Keyboard::Left)
 				{
-					camera.move(-500.0f, 0.0f, 0.0f);
-					camera.moveTarget(-500.0f, 0.0f, 0.0f);
+					camera.move(-100.0f, 0.0f, 0.0f);
+					camera.moveTarget(-100.0f, 0.0f, 0.0f);
 				}
 				
 				else if(event.key.code == sf::Keyboard::Right)
 				{
-					camera.move(500.0f, 0.0f, 0.0f);
-					camera.moveTarget(500.0f, 0.0f, 0.0f);
+					camera.move(100.0f, 0.0f, 0.0f);
+					camera.moveTarget(100.0f, 0.0f, 0.0f);
 				}
 				
 				else if(event.key.code == sf::Keyboard::PageUp)
-					camera.move(0.0f, 500.0f, 0.0f);
+					camera.move(0.0f, 100.0f, 0.0f);
 				
 				else if(event.key.code == sf::Keyboard::PageDown)
-					camera.move(0.0f, -500.0f, 0.0f);
+					camera.move(0.0f, -100.0f, 0.0f);
 				
 				camera.updateMatrices();
 			}

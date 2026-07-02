@@ -167,7 +167,7 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 	const float centerX = worldSizeX * 0.5f;
 	const float centerZ = worldSizeZ * 0.5f;
 	
-	const float heightScale = 0.25f;
+	const float heightScale = 1.0f;
 	const float baseHeight = terrain.getMinHeight();
 	
 	for(int z = 0; z < m_height; ++z)
