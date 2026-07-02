@@ -151,7 +151,7 @@ CMAKE_PROJECT_DESCRIPTION:STATIC=
 CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=Project
+CMAKE_PROJECT_NAME:STATIC=gunsim
 
 //Value Computed by CMake
 CMAKE_PROJECT_SPDX_LICENSE:STATIC=
@@ -229,6 +229,21 @@ Project_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
 Project_SOURCE_DIR:STATIC=/home/madpl/cprogs/SFMLTutorials/GunShipSim
+
+//The directory containing a CMake configuration file for SFML.
+SFML_DIR:PATH=/usr/local/lib/cmake/SFML
+
+//Path to a file.
+SFML_DOC_DIR:PATH=SFML_DOC_DIR-NOTFOUND
+
+//Value Computed by CMake
+gunsim_BINARY_DIR:STATIC=/home/madpl/cprogs/SFMLTutorials/GunShipSim/build
+
+//Value Computed by CMake
+gunsim_IS_TOP_LEVEL:STATIC=ON
+
+//Value Computed by CMake
+gunsim_SOURCE_DIR:STATIC=/home/madpl/cprogs/SFMLTutorials/GunShipSim
 
 
 ########################
