@@ -8,6 +8,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <glm/gtc/type_ptr.hpp>
 #include <terrain/TerrainData.hpp>
 #include <terrain/TerrainRenderer.hpp>
 
@@ -119,7 +120,7 @@ void TerrainRenderer::destroy()
 }
 
 
-void TerrainRenderer::render(const float* mvpMatrix)
+void TerrainRenderer::render(const glm::mat4& mvpMatrix)
 {
 	if(not m_valid or m_vao == 0 or m_shaderProgram == 0)
 		return;
@@ -127,9 +128,8 @@ void TerrainRenderer::render(const float* mvpMatrix)
 	glUseProgram(m_shaderProgram);
 	
 	GLint mvpLocation = glGetUniformLocation(m_shaderProgram, "uMVP");
-	if(mvpLocation >= 0 and mvpMatrix != nullptr)
-		glUniformMatrix4fv(mvpLocation, 1, GL_TRUE, mvpMatrix);
-		// glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, mvpMatrix);
+	if(mvpLocation >= 0)
+		glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
 	
 	glBindVertexArray(m_vao);
 	
@@ -153,10 +153,8 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 	m_width = terrain.getWidth();
 	m_height = terrain.getHeight();
 	
-	if (m_width <= 1 || m_height <= 1)
-	{
+	if(m_width <= 1 or m_height <= 1)
 		return false;
-	}
 	
 	m_vertices.clear();
 	m_indices.clear();
@@ -166,6 +164,12 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 	const float worldSizeX = terrain.getWorldSizeX();
 	const float worldSizeZ = terrain.getWorldSizeZ();
 	
+	const float centerX = worldSizeX * 0.5f;
+	const float centerZ = worldSizeZ * 0.5f;
+	
+	const float heightScale = 0.25f;
+	const float baseHeight = terrain.getMinHeight();
+	
 	for(int z = 0; z < m_height; ++z)
 	{
 		for(int x = 0; x < m_width; ++x)
@@ -173,15 +177,13 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 			float fx = static_cast<float>(x) / static_cast<float>(m_width - 1);
 			float fz = static_cast<float>(z) / static_cast<float>(m_height - 1);
 			
-			// float worldX = fx * worldSizeX;
-			// float worldZ = fz * worldSizeZ;
+			float worldX = fx * worldSizeX - centerX;
+			float worldZ = fz * worldSizeZ - centerZ;
 			
-			float worldX = fx * worldSizeX - worldSizeX * 0.5f;
-			float worldZ = fz * worldSizeZ - worldSizeZ * 0.5f;
+			float rawHeight = terrain.getHeightAtGrid(x, z);
+			float worldY = (rawHeight - baseHeight) * heightScale;
 			
-			float worldY = terrain.getHeightAtGrid(x, z);
-			
-			float colorFactor = heightToColorFactor(worldY);
+			float colorFactor = heightToColorFactor(rawHeight);
 			
 			m_vertices.push_back(worldX);
 			m_vertices.push_back(worldY);

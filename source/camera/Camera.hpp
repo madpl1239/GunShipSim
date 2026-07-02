@@ -1,13 +1,12 @@
 /*
  * Camera.hpp
  * 
- * Cocpit Camera for GunShip Simulator.
- * 
- * 02-07-2026 by madpl
+ * 02-07-2027 by madpl
  */
 #pragma once
 
-#include <cstring>
+#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
 
 
 class Camera
@@ -22,46 +21,26 @@ public:
 	void move(float dx, float dy, float dz);
 	void moveTarget(float dx, float dy, float dz);
 	
-	const float* getViewMatrix() const;
-	const float* getProjectionMatrix() const;
-	const float* getViewProjectionMatrix() const;
-	
 	void updateMatrices();
 	
-private:
-	void buildPerspective(float* outMatrix, float fovDegrees, float aspectRatio,
-						  float nearPlane, float farPlane);
+	const glm::vec3& getPosition() const;
+	const glm::vec3& getTarget() const;
 	
-	void buildLookAt(float* outMatrix, float eyeX, float eyeY, float eyeZ,
-						float targetX, float targetY, float targetZ,
-						float upX, float upY, float upZ);
-	
-	void multiply4x4(float* outMatrix, const float* a, const float* b);
-	
-	void normalize3(float& x, float& y, float& z);
-	
-	void cross3(float ax, float ay, float az,
-				float bx, float by, float bz,
-				float& outX, float& outY, float& outZ);
-	
-	float dot3(float ax, float ay, float az,
-			   float bx, float by, float bz);
+	const glm::mat4& getViewMatrix() const;
+	const glm::mat4& getProjectionMatrix() const;
+	const glm::mat4& getViewProjectionMatrix() const;
 	
 private:
-	float m_posX;
-	float m_posY;
-	float m_posZ;
-	
-	float m_targetX;
-	float m_targetY;
-	float m_targetZ;
+	glm::vec3 m_position;
+	glm::vec3 m_target;
+	glm::vec3 m_up;
 	
 	float m_fovDegrees;
 	float m_aspectRatio;
 	float m_nearPlane;
 	float m_farPlane;
 	
-	float m_view[16];
-	float m_projection[16];
-	float m_viewProjection[16];
+	glm::mat4 m_view;
+	glm::mat4 m_projection;
+	glm::mat4 m_viewProjection;
 };

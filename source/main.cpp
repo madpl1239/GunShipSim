@@ -75,13 +75,9 @@ int main(void)
 	}
 	
 	Camera camera;
-	camera.setPerspective(60.0f, 1280.0f / 720.0f, 1.0f, 50000.0f);
-	
-	camera.setPosition(0.0f, 6000.0f, 12000.0f);
+	camera.setPerspective(60.0f, 1280.0f / 720.0f, 1.0f, 100000.0f);
+	camera.setPosition(0.0f, 12000.0f, 18000.0f);
 	camera.setTarget(0.0f, 0.0f, 0.0f);
-	
-	// camera.setPosition(6000.0f, 4000.0f, 14000.0f);
-	// camera.setTarget(6000.0f, 0.0f, 6000.0f);
 	camera.updateMatrices();
 	
 	bool running = true;

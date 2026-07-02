@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <GL/glew.h>
 #include <SFML/OpenGL.hpp>
+#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
 
 
 class TerrainData;
@@ -24,7 +26,7 @@ public:
 	bool create(const TerrainData& terrain);
 	void destroy();
 	
-	void render(const float* mvpMatrix);
+	void render(const glm::mat4& mvpMatrix);
 	
 	bool isValid() const;
 	
