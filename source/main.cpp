@@ -7,6 +7,7 @@
  */
 #include <iostream>
 #include <cmath>
+#include <sstream>
 #include <GL/glew.h>
 #include <SFML/Window.hpp>
 #include <SFML/OpenGL.hpp>
@@ -75,7 +76,9 @@ int main(void)
 	
 	std::cout << "terrain width = " << terrain.getWorldSizeX() << "\n";
 	std::cout << "terrain height = " << terrain.getWorldSizeZ() << "\n";
-	std::cout << "spacing = " << terrain.getWorldSizeX() / float(terrain.getWidth() - 1) << "\n";
+	std::cout << "spacing = "
+	<< terrain.getWorldSizeX() / float(terrain.getWidth() - 1)
+	<< "\n";
 	
 	TerrainRenderer renderer;
 	if(not renderer.create(terrain))
@@ -86,11 +89,11 @@ int main(void)
 	}
 	
 	Helicopter helicopter;
-	helicopter.setPosition(0.0f, terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 2.0f, 0.0f);
+	helicopter.setPosition(0.0f, terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f, 0.0f);
 	helicopter.setYawDegrees(0.0f);
 	
 	Camera camera;
-	camera.setPerspective(45.0f, 1280.0f / 720.0f, 1.0f, 100000.0f);
+	camera.setPerspective(75.0f, 1280.0f / 720.0f, 0.3f, 100000.0f);
 	camera.updateMatrices();
 	
 	sf::Clock frameClock;
@@ -109,9 +112,7 @@ int main(void)
 		while(window.pollEvent(event))
 		{
 			if(event.type == sf::Event::Closed)
-			{
 				running = false;
-			}
 			
 			else if(event.type == sf::Event::KeyPressed)
 			{
@@ -126,17 +127,20 @@ int main(void)
 				
 				float aspect = static_cast<float>(event.size.width) / static_cast<float>(event.size.height);
 				
-				camera.setPerspective(60.0f, aspect, 1.0f, 100000.0f);
+				camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
 			}
 		}
 		
 		helicopter.update(dt, terrain);
 		
 		const float pi = 3.1415926535f;
-		float yawRadians = helicopter.getYawDegrees() * pi / 180.0f;
 		
-		float forwardX = std::sin(yawRadians);
-		float forwardZ = -std::cos(yawRadians);
+		float yawRadians = helicopter.getYawDegrees() * pi / 180.0f;
+		float pitchRadians = helicopter.getPitchDegrees() * pi / 180.0f;
+		
+		float forwardX = std::sin(yawRadians) * std::cos(pitchRadians);
+		float forwardY = std::sin(pitchRadians);
+		float forwardZ = -std::cos(yawRadians) * std::cos(pitchRadians);
 		
 		float cockpitForwardOffset = 1.2f;
 		float cockpitUpOffset = 0.6f;
@@ -147,34 +151,53 @@ int main(void)
 		float camZ = helicopter.getZ() + forwardZ * cockpitForwardOffset;
 		
 		float targetX = camX + forwardX * lookDistance;
-		float targetY = camY - 0.5f;
+		float targetY = camY + forwardY * lookDistance;
 		float targetZ = camZ + forwardZ * lookDistance;
 		
 		camera.setPosition(camX, camY, camZ);
 		camera.setTarget(targetX, targetY, targetZ);
 		camera.updateMatrices();
 		
+		std::ostringstream hud;
+		hud
+		<< "GunShipSim"
+		<< " | SPD " << static_cast<int>(helicopter.getSpeed()) << " m/s"
+		<< " | ALT " << static_cast<int>(helicopter.getY()) << " m"
+		<< " | AGL " << static_cast<int>(helicopter.getAltitudeAboveGround()) << " m"
+		<< " | VS " << static_cast<int>(helicopter.getVerticalSpeed()) << " m/s"
+		<< " | HDG " << static_cast<int>(helicopter.getYawDegrees()) << " deg"
+		<< " | PITCH " << static_cast<int>(helicopter.getPitchDegrees()) << " deg"
+		<< " | ROLL " << static_cast<int>(helicopter.getRollDegrees()) << " deg";
+		
+		window.setTitle(hud.str());
+		
 		debugTimer += dt;
 		if(debugTimer >= 20.0f)
 		{
 			debugTimer = 0.0f;
 			
-			float terrainHeight = terrain.getHeightAtWorldPosition(helicopter.getX(),
+			float terrainHeight = terrain.getHeightAtWorldPosition(
+				helicopter.getX(),
 																   helicopter.getZ());
 			
 			std::cout << "Heli pos = ("
-				<< helicopter.getX() << ", "
-				<< helicopter.getY() << ", "
-				<< helicopter.getZ() << ")  "
-				<< "terrainY = " << terrainHeight << "  "
-				<< "AGL = " << helicopter.getAltitudeAboveGround() << "  "
-				<< "speed = " << helicopter.getSpeed() << "  "
-				<< "yaw = " << helicopter.getYawDegrees()
-				<< "\n";
+			<< helicopter.getX() << ", "
+			<< helicopter.getY() << ", "
+			<< helicopter.getZ() << ") "
+			<< "terrainY = " << terrainHeight << " "
+			<< "AGL = " << helicopter.getAltitudeAboveGround() << " "
+			<< "speed = " << helicopter.getSpeed() << " "
+			<< "vs = " << helicopter.getVerticalSpeed() << " "
+			<< "yaw = " << helicopter.getYawDegrees() << " "
+			<< "pitch = " << helicopter.getPitchDegrees() << " "
+			<< "roll = " << helicopter.getRollDegrees()
+			<< "\n";
 		}
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		
 		renderer.render(camera.getViewProjectionMatrix(), glm::vec3(camX, camY, camZ));
+		
 		window.display();
 	}
 	
