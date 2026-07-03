@@ -23,7 +23,7 @@ int main(void)
 	sf::ContextSettings settings;
 	settings.depthBits = 24;
 	settings.stencilBits = 8;
-	settings.antialiasingLevel = 4;
+	settings.antialiasingLevel = 2;
 	settings.majorVersion = 3;
 	settings.minorVersion = 3;
 	settings.attributeFlags = sf::ContextSettings::Core;
@@ -31,7 +31,7 @@ int main(void)
 	sf::Window window(sf::VideoMode(1280, 720), "GunShipSim - Terrain Test",
 				   sf::Style::Titlebar | sf::Style::Close, settings);
 	
-	window.setVerticalSyncEnabled(true);
+	window.setVerticalSyncEnabled(false);
 	window.setActive(true);
 	
 	glewExperimental = GL_TRUE;
@@ -48,7 +48,7 @@ int main(void)
 	glViewport(0, 0, 1280, 720);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
 	HGTLoader loader;
@@ -73,6 +73,10 @@ int main(void)
 		return -1;
 	}
 	
+	std::cout << "terrain width = " << terrain.getWorldSizeX() << "\n";
+	std::cout << "terrain height = " << terrain.getWorldSizeZ() << "\n";
+	std::cout << "spacing = " << terrain.getWorldSizeX() / float(terrain.getWidth() - 1) << "\n";
+	
 	TerrainRenderer renderer;
 	if(not renderer.create(terrain))
 	{
@@ -82,11 +86,11 @@ int main(void)
 	}
 	
 	Helicopter helicopter;
-	helicopter.setPosition(0.0f, terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 8.0f, 0.0f);
+	helicopter.setPosition(0.0f, terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 2.0f, 0.0f);
 	helicopter.setYawDegrees(0.0f);
 	
 	Camera camera;
-	camera.setPerspective(60.0f, 1280.0f / 720.0f, 1.0f, 100000.0f);
+	camera.setPerspective(45.0f, 1280.0f / 720.0f, 1.0f, 100000.0f);
 	camera.updateMatrices();
 	
 	sf::Clock frameClock;
@@ -134,23 +138,24 @@ int main(void)
 		float forwardX = std::sin(yawRadians);
 		float forwardZ = -std::cos(yawRadians);
 		
-		float camDistance = 120.0f;
-		float camHeight = 45.0f;
+		float cockpitForwardOffset = 1.2f;
+		float cockpitUpOffset = 0.6f;
+		float lookDistance = 250.0f;
 		
-		float camX = helicopter.getX() - forwardX * camDistance;
-		float camY = helicopter.getY() + camHeight;
-		float camZ = helicopter.getZ() - forwardZ * camDistance;
+		float camX = helicopter.getX() + forwardX * cockpitForwardOffset;
+		float camY = helicopter.getY() + cockpitUpOffset;
+		float camZ = helicopter.getZ() + forwardZ * cockpitForwardOffset;
 		
-		float targetX = helicopter.getX() + forwardX * 60.0f;
-		float targetY = helicopter.getY() + 2.0f;
-		float targetZ = helicopter.getZ() + forwardZ * 60.0f;
+		float targetX = camX + forwardX * lookDistance;
+		float targetY = camY - 0.5f;
+		float targetZ = camZ + forwardZ * lookDistance;
 		
 		camera.setPosition(camX, camY, camZ);
 		camera.setTarget(targetX, targetY, targetZ);
 		camera.updateMatrices();
 		
 		debugTimer += dt;
-		if(debugTimer >= 0.5f)
+		if(debugTimer >= 20.0f)
 		{
 			debugTimer = 0.0f;
 			
@@ -158,20 +163,18 @@ int main(void)
 																   helicopter.getZ());
 			
 			std::cout << "Heli pos = ("
-			<< helicopter.getX() << ", "
-			<< helicopter.getY() << ", "
-			<< helicopter.getZ() << ")  "
-			<< "terrainY = " << terrainHeight << "  "
-			<< "AGL = " << helicopter.getAltitudeAboveGround() << "  "
-			<< "speed = " << helicopter.getSpeed() << "  "
-			<< "yaw = " << helicopter.getYawDegrees()
-			<< "\n";
+				<< helicopter.getX() << ", "
+				<< helicopter.getY() << ", "
+				<< helicopter.getZ() << ")  "
+				<< "terrainY = " << terrainHeight << "  "
+				<< "AGL = " << helicopter.getAltitudeAboveGround() << "  "
+				<< "speed = " << helicopter.getSpeed() << "  "
+				<< "yaw = " << helicopter.getYawDegrees()
+				<< "\n";
 		}
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		
-		renderer.render(camera.getViewProjectionMatrix());
-		
+		renderer.render(camera.getViewProjectionMatrix(), glm::vec3(camX, camY, camZ));
 		window.display();
 	}
 	

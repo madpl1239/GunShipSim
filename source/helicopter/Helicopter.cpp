@@ -18,7 +18,7 @@ Helicopter::Helicopter():
 	m_speed(0.0f),
 	m_verticalSpeed(0.0f),
 	m_altitudeAboveGround(0.0f),
-	m_maxForwardSpeed(120.0f),
+	m_maxForwardSpeed(50.0f),
 	m_acceleration(40.0f),
 	m_deceleration(30.0f),
 	m_turnSpeed(60.0f),

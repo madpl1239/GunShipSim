@@ -25,7 +25,7 @@ void TerrainData::clear()
 	m_width = 0;
 	m_height = 0;
 	m_missionSizeMeters = 0.0f;
-	m_heightScale = 1.0f;
+	m_heightScale = 0.0f;
 	m_minHeight = 0.0f;
 	m_maxHeight = 0.0f;
 	m_heights.clear();
@@ -246,7 +246,7 @@ float TerrainData::getHeightAtWorldPosition(float worldX, float worldZ) const
 	float hx1 = h01 + (h11 - h01) * tx;
 	float h = hx0 + (hx1 - hx0) * tz;
 	
-	return h;
+	return (h - m_minHeight) * m_heightScale;
 }
 
 

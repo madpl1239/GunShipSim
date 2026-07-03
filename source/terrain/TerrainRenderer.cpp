@@ -1,16 +1,18 @@
 /*
  * TerrainRenderer.cpp
- * 
+ *
  * 02-07-2026 by madpl
  */
-#include <fstream>
-#include <sstream>
-#include <iostream>
+#include <GL/glew.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <algorithm>
 #include <cmath>
-#include <glm/gtc/type_ptr.hpp>
-#include <terrain/TerrainData.hpp>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
 #include <terrain/TerrainRenderer.hpp>
+#include <terrain/TerrainData.hpp>
 
 
 TerrainRenderer::TerrainRenderer():
@@ -66,20 +68,28 @@ bool TerrainRenderer::create(const TerrainData& terrain)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(m_indices.size() * sizeof(unsigned int)),
 				 m_indices.data(), GL_STATIC_DRAW);
 	
-	const GLsizei stride = 4 * sizeof(float);
+	// layout:
+	// 0: position xyz
+	// 1: normal xyz
+	// 2: height factor
+	const GLsizei stride = 7 * sizeof(float);
 	
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
 	
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(3 * sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(3 * sizeof(float)));
+	
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(6 * sizeof(float)));
 	
 	glBindVertexArray(0);
 	
 	m_valid = true;
 	
-	std::cout << "vertices: " << m_vertices.size() << "\n";
-	std::cout << "indices: " << m_indices.size() << "\n";
+	std::cout << "terrain renderer created\n";
+	std::cout << "vertex float count: " << m_vertices.size() << "\n";
+	std::cout << "index count: " << m_indices.size() << "\n";
 	
 	return true;
 }
@@ -120,7 +130,7 @@ void TerrainRenderer::destroy()
 }
 
 
-void TerrainRenderer::render(const glm::mat4& mvpMatrix)
+void TerrainRenderer::render(const glm::mat4& mvpMatrix, const glm::vec3& cameraPosition)
 {
 	if(not m_valid or m_vao == 0 or m_shaderProgram == 0)
 		return;
@@ -131,11 +141,23 @@ void TerrainRenderer::render(const glm::mat4& mvpMatrix)
 	if(mvpLocation >= 0)
 		glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(mvpMatrix));
 	
+	GLint lightDirLocation = glGetUniformLocation(m_shaderProgram, "uLightDirection");
+	if(lightDirLocation >= 0)
+		glUniform3f(lightDirLocation, -0.55f, -1.0f, -0.25f);
+	
+	GLint cameraPosLocation = glGetUniformLocation(m_shaderProgram, "uCameraPosition");
+	if(cameraPosLocation >= 0)
+		glUniform3f(cameraPosLocation, cameraPosition.x, cameraPosition.y, cameraPosition.z);
+	
+	GLint ambientLocation = glGetUniformLocation(m_shaderProgram, "uAmbientStrength");
+	if(ambientLocation >= 0)
+		glUniform1f(ambientLocation, 0.32f);
+	
 	glBindVertexArray(m_vao);
-	
-	glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indices.size()),
-				   GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
-	
+	glDrawElements(GL_TRIANGLES,
+				   static_cast<GLsizei>(m_indices.size()),
+				   GL_UNSIGNED_INT,
+				reinterpret_cast<void*>(0));
 	glBindVertexArray(0);
 	
 	glUseProgram(0);
@@ -159,7 +181,8 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 	m_vertices.clear();
 	m_indices.clear();
 	
-	m_vertices.reserve(static_cast<std::size_t>(m_width * m_height * 4));
+	m_vertices.reserve(static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 7);
+	m_indices.reserve(static_cast<size_t>(m_width - 1) * static_cast<size_t>(m_height - 1) * 6);
 	
 	const float worldSizeX = terrain.getWorldSizeX();
 	const float worldSizeZ = terrain.getWorldSizeZ();
@@ -167,8 +190,40 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 	const float centerX = worldSizeX * 0.5f;
 	const float centerZ = worldSizeZ * 0.5f;
 	
-	const float heightScale = 1.0f;
+	const float heightScale = terrain.getHeightScale();
 	const float baseHeight = terrain.getMinHeight();
+	
+	const float spacingX = worldSizeX / static_cast<float>(m_width - 1);
+	const float spacingZ = worldSizeZ / static_cast<float>(m_height - 1);
+	
+	auto sampleHeightWorld = [&](int x, int z) -> float
+	{
+		x = std::clamp(x, 0, m_width - 1);
+		z = std::clamp(z, 0, m_height - 1);
+		
+		float rawHeight = terrain.getHeightAtGrid(x, z);
+		
+		return (rawHeight - baseHeight) * heightScale;
+	};
+	
+	auto computeNormal = [&](int x, int z) -> glm::vec3
+	{
+		float hL = sampleHeightWorld(x - 1, z);
+		float hR = sampleHeightWorld(x + 1, z);
+		float hD = sampleHeightWorld(x, z - 1);
+		float hU = sampleHeightWorld(x, z + 1);
+		
+		glm::vec3 tangentX(2.0f * spacingX, hR - hL, 0.0f);
+		glm::vec3 tangentZ(0.0f, hU - hD, 2.0f * spacingZ);
+		
+		glm::vec3 n = glm::cross(tangentZ, tangentX);
+		float len = glm::length(n);
+		
+		if(len <= 0.0001f)
+			return glm::vec3(0.0f, 1.0f, 0.0f);
+		
+		return n / len;
+	};
 	
 	for(int z = 0; z < m_height; ++z)
 	{
@@ -183,11 +238,17 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 			float rawHeight = terrain.getHeightAtGrid(x, z);
 			float worldY = (rawHeight - baseHeight) * heightScale;
 			
+			glm::vec3 normal = computeNormal(x, z);
 			float colorFactor = heightToColorFactor(rawHeight);
 			
 			m_vertices.push_back(worldX);
 			m_vertices.push_back(worldY);
 			m_vertices.push_back(worldZ);
+			
+			m_vertices.push_back(normal.x);
+			m_vertices.push_back(normal.y);
+			m_vertices.push_back(normal.z);
+			
 			m_vertices.push_back(colorFactor);
 		}
 	}
@@ -217,60 +278,56 @@ bool TerrainRenderer::buildMesh(const TerrainData& terrain)
 
 bool TerrainRenderer::buildShaders()
 {
-	const std::string vertexSource = R"(
-		#version 330 core
-		layout(location = 0) in vec3 aPos;
-		layout(location = 1) in float aHeightFactor;
-		
-		uniform mat4 uMVP;
-		
-		out float vHeightFactor;
-		
-		void main()
-		{
-			vHeightFactor = aHeightFactor;
-			gl_Position = uMVP * vec4(aPos, 1.0);
-		}
-	)";
-
-	const std::string fragmentSource = R"(
-		#version 330 core
-		in float vHeightFactor;
-		out vec4 FragColor;
-		
-		void main()
-		{
-			vec3 lowColor = vec3(0.72, 0.62, 0.38);
-			vec3 highColor = vec3(0.40, 0.36, 0.24);
-			vec3 color = mix(lowColor, highColor, clamp(vHeightFactor, 0.0, 1.0));
-			FragColor = vec4(color, 1.0);
-		}
-	)";
-
-	GLuint vs = compileShader(GL_VERTEX_SHADER, vertexSource);
-	if(vs == 0)
+	const std::string vertexSource = readTextFile("source/shaders/terrain.vert");
+	const std::string fragmentSource = readTextFile("source/shaders/terrain.frag");
+	
+	if(vertexSource.empty() or fragmentSource.empty())
 	{
+		std::cerr << "Shader source is empty\n";
+		
 		return false;
 	}
-
+	
+	GLuint vs = compileShader(GL_VERTEX_SHADER, vertexSource);
+	if(vs == 0)
+		return false;
+	
 	GLuint fs = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
 	if(fs == 0)
 	{
 		glDeleteShader(vs);
+		
 		return false;
 	}
-
+	
 	GLuint program = linkProgram(vs, fs);
-
+	
 	glDeleteShader(vs);
 	glDeleteShader(fs);
-
+	
 	if(program == 0)
 		return false;
-
+	
 	m_shaderProgram = program;
-
+	
 	return true;
+}
+
+
+std::string TerrainRenderer::readTextFile(const std::string& path) const
+{
+	std::ifstream file(path);
+	if(not file.is_open())
+	{
+		std::cerr << "Failed to open file: " << path << "\n";
+		
+		return "";
+	}
+	
+	std::stringstream buffer;
+	buffer << file.rdbuf();
+	
+	return buffer.str();
 }
 
 
@@ -281,11 +338,14 @@ GLuint TerrainRenderer::compileShader(GLenum type, const std::string& source)
 		return 0;
 	
 	const char* src = source.c_str();
-	glShaderSource(shader, 1, &src, nullptr);
+	GLint length = static_cast<GLint>(source.size());
+	
+	glShaderSource(shader, 1, &src, &length);
 	glCompileShader(shader);
 	
 	GLint status = GL_FALSE;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+	
 	if(status != GL_TRUE)
 	{
 		GLint logLength = 0;
@@ -293,9 +353,11 @@ GLuint TerrainRenderer::compileShader(GLenum type, const std::string& source)
 		
 		if(logLength > 1)
 		{
-			std::string log(static_cast<std::size_t>(logLength), '\0');
+			std::string log(static_cast<size_t>(logLength), '\0');
+			
 			glGetShaderInfoLog(shader, logLength, nullptr, log.data());
-			std::cerr << log << std::endl;
+			
+			std::cerr << "Shader compile error:\n" << log << "\n";
 		}
 		
 		glDeleteShader(shader);
@@ -319,6 +381,7 @@ GLuint TerrainRenderer::linkProgram(GLuint vertexShader, GLuint fragmentShader)
 	
 	GLint status = GL_FALSE;
 	glGetProgramiv(program, GL_LINK_STATUS, &status);
+	
 	if(status != GL_TRUE)
 	{
 		GLint logLength = 0;
@@ -326,9 +389,11 @@ GLuint TerrainRenderer::linkProgram(GLuint vertexShader, GLuint fragmentShader)
 		
 		if(logLength > 1)
 		{
-			std::string log(static_cast<std::size_t>(logLength), '\0');
+			std::string log(static_cast<size_t>(logLength), '\0');
+			
 			glGetProgramInfoLog(program, logLength, nullptr, log.data());
-			std::cerr << log << std::endl;
+			
+			std::cerr << "Program link error:\n" << log << "\n";
 		}
 		
 		glDeleteProgram(program);

@@ -13,7 +13,6 @@
 #include <glm/glm.hpp>
 #include <glm/mat4x4.hpp>
 
-
 class TerrainData;
 
 
@@ -26,13 +25,16 @@ public:
 	bool create(const TerrainData& terrain);
 	void destroy();
 	
-	void render(const glm::mat4& mvpMatrix);
+	void render(const glm::mat4& mvpMatrix, const glm::vec3& cameraPosition);
 	
 	bool isValid() const;
 	
 private:
 	bool buildMesh(const TerrainData& terrain);
 	bool buildShaders();
+	
+	std::string readTextFile(const std::string& path) const;
+	
 	GLuint compileShader(GLenum type, const std::string& source);
 	GLuint linkProgram(GLuint vertexShader, GLuint fragmentShader);
 	
@@ -44,11 +46,10 @@ private:
 	GLuint m_ebo;
 	GLuint m_shaderProgram;
 	
-	std::vector<float> m_vertices;
-	std::vector<unsigned int> m_indices;
-	
 	int m_width;
 	int m_height;
-	
 	bool m_valid;
+	
+	std::vector<float> m_vertices;
+	std::vector<unsigned int> m_indices;
 };

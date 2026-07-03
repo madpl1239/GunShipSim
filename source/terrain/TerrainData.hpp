@@ -52,12 +52,10 @@ public:
 	
 private:
 	float sampleSourceAtNormalized(const std::vector<int16_t>& sourceSamples,
-								   int sourceWidth, int sourceHeight, float u,
-									float v) const;
+								   int sourceWidth, int sourceHeight, float u, float v) const;
 	
 	float sampleSourceBilinear(const std::vector<int16_t>& sourceSamples,
-							   int sourceWidth, int sourceHeight, float x,
-								float z) const;
+							   int sourceWidth, int sourceHeight, float x, float z) const;
 
 private:
 	int m_width;
