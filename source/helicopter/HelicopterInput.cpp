@@ -18,22 +18,22 @@ HelicopterInputState HelicopterInput::readInput() const
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::W))
 		state.forwardInput += 1.0f;
 	
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))
 	{
 		state.forwardInput -= 1.0f;
 		state.brake = true;
 	}
 	
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::A))
 		state.yawInput -= 1.0f;
 	
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::D))
 		state.yawInput += 1.0f;
 	
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
 		state.verticalInput += 1.0f;
 	
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::E))
+	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::E))
 		state.verticalInput -= 1.0f;
 	
 	return state;

@@ -172,6 +172,7 @@ int main(void)
 		
 		camera.setPosition(camX, camY, camZ);
 		camera.setTarget(targetX, targetY, targetZ);
+		camera.setRollDegrees(-helicopter.getRollDegrees());
 		camera.updateMatrices();
 		
 		hud.setHeadingDegrees(helicopter.getYawDegrees());

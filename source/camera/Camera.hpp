@@ -1,6 +1,6 @@
 /*
  * Camera.hpp
- * 
+ *
  * 02-07-2027 by madpl
  */
 #pragma once
@@ -17,6 +17,7 @@ public:
 	void setPerspective(float fovDegrees, float aspectRatio, float nearPlane, float farPlane);
 	void setPosition(float x, float y, float z);
 	void setTarget(float x, float y, float z);
+	void setRollDegrees(float rollDegrees);
 	
 	void move(float dx, float dy, float dz);
 	void moveTarget(float dx, float dy, float dz);
@@ -35,6 +36,7 @@ private:
 	glm::vec3 m_target;
 	glm::vec3 m_up;
 	
+	float m_rollDegrees;
 	float m_fovDegrees;
 	float m_aspectRatio;
 	float m_nearPlane;

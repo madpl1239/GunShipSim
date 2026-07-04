@@ -1,10 +1,12 @@
 /*
  * FlightModel.hpp
+ * 
+ * 04-07-2026 by madpl
  */
-
 #pragma once
 
 #include <helicopter/HelicopterInput.hpp>
+
 
 class FlightModel
 {
@@ -12,7 +14,7 @@ public:
 	FlightModel();
 	
 	void setYawDegrees(float yawDegrees);
-	void update(float dt, const HelicopterInputState &inputState);
+	void update(float dt, const HelicopterInputState& inputState);
 	
 	float getYawDegrees() const;
 	float getPitchDegrees() const;
