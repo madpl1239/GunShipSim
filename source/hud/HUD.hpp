@@ -1,13 +1,11 @@
-/*
- * HUD.hpp
- * 
- * 04-07-2026 by madpl
- */
 #pragma once
 
 #include <SFML/Graphics.hpp>
 #include <hud/AltimeterWidget.hpp>
 #include <hud/CompassWidget.hpp>
+#include <hud/SpeedWidget.hpp>
+#include <hud/AGLWidget.hpp>
+#include <hud/VerticalSpeedWidget.hpp>
 
 
 class HUD
@@ -37,4 +35,7 @@ private:
 	
 	CompassWidget m_compassWidget;
 	AltimeterWidget m_altimeterWidget;
+	SpeedWidget m_speedWidget;
+	AGLWidget m_aglWidget;
+	VerticalSpeedWidget m_verticalSpeedWidget;
 };

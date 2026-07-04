@@ -544,6 +544,30 @@ source/helicopter/HelicopterRenderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/helicopter/HelicopterRenderer.cpp.s
 .PHONY : source/helicopter/HelicopterRenderer.cpp.s
 
+source/hud/AGLWidget.o: source/hud/AGLWidget.cpp.o
+.PHONY : source/hud/AGLWidget.o
+
+# target to build an object file
+source/hud/AGLWidget.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/AGLWidget.cpp.o
+.PHONY : source/hud/AGLWidget.cpp.o
+
+source/hud/AGLWidget.i: source/hud/AGLWidget.cpp.i
+.PHONY : source/hud/AGLWidget.i
+
+# target to preprocess a source file
+source/hud/AGLWidget.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/AGLWidget.cpp.i
+.PHONY : source/hud/AGLWidget.cpp.i
+
+source/hud/AGLWidget.s: source/hud/AGLWidget.cpp.s
+.PHONY : source/hud/AGLWidget.s
+
+# target to generate assembly for a file
+source/hud/AGLWidget.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/AGLWidget.cpp.s
+.PHONY : source/hud/AGLWidget.cpp.s
+
 source/hud/AltimeterWidget.o: source/hud/AltimeterWidget.cpp.o
 .PHONY : source/hud/AltimeterWidget.o
 
@@ -663,6 +687,54 @@ source/hud/Radar.s: source/hud/Radar.cpp.s
 source/hud/Radar.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/Radar.cpp.s
 .PHONY : source/hud/Radar.cpp.s
+
+source/hud/SpeedWidget.o: source/hud/SpeedWidget.cpp.o
+.PHONY : source/hud/SpeedWidget.o
+
+# target to build an object file
+source/hud/SpeedWidget.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/SpeedWidget.cpp.o
+.PHONY : source/hud/SpeedWidget.cpp.o
+
+source/hud/SpeedWidget.i: source/hud/SpeedWidget.cpp.i
+.PHONY : source/hud/SpeedWidget.i
+
+# target to preprocess a source file
+source/hud/SpeedWidget.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/SpeedWidget.cpp.i
+.PHONY : source/hud/SpeedWidget.cpp.i
+
+source/hud/SpeedWidget.s: source/hud/SpeedWidget.cpp.s
+.PHONY : source/hud/SpeedWidget.s
+
+# target to generate assembly for a file
+source/hud/SpeedWidget.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/SpeedWidget.cpp.s
+.PHONY : source/hud/SpeedWidget.cpp.s
+
+source/hud/VerticalSpeedWidget.o: source/hud/VerticalSpeedWidget.cpp.o
+.PHONY : source/hud/VerticalSpeedWidget.o
+
+# target to build an object file
+source/hud/VerticalSpeedWidget.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/VerticalSpeedWidget.cpp.o
+.PHONY : source/hud/VerticalSpeedWidget.cpp.o
+
+source/hud/VerticalSpeedWidget.i: source/hud/VerticalSpeedWidget.cpp.i
+.PHONY : source/hud/VerticalSpeedWidget.i
+
+# target to preprocess a source file
+source/hud/VerticalSpeedWidget.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/VerticalSpeedWidget.cpp.i
+.PHONY : source/hud/VerticalSpeedWidget.cpp.i
+
+source/hud/VerticalSpeedWidget.s: source/hud/VerticalSpeedWidget.cpp.s
+.PHONY : source/hud/VerticalSpeedWidget.s
+
+# target to generate assembly for a file
+source/hud/VerticalSpeedWidget.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/VerticalSpeedWidget.cpp.s
+.PHONY : source/hud/VerticalSpeedWidget.cpp.s
 
 source/main.o: source/main.cpp.o
 .PHONY : source/main.o
@@ -1205,6 +1277,9 @@ help:
 	@echo "... source/helicopter/HelicopterRenderer.o"
 	@echo "... source/helicopter/HelicopterRenderer.i"
 	@echo "... source/helicopter/HelicopterRenderer.s"
+	@echo "... source/hud/AGLWidget.o"
+	@echo "... source/hud/AGLWidget.i"
+	@echo "... source/hud/AGLWidget.s"
 	@echo "... source/hud/AltimeterWidget.o"
 	@echo "... source/hud/AltimeterWidget.i"
 	@echo "... source/hud/AltimeterWidget.s"
@@ -1220,6 +1295,12 @@ help:
 	@echo "... source/hud/Radar.o"
 	@echo "... source/hud/Radar.i"
 	@echo "... source/hud/Radar.s"
+	@echo "... source/hud/SpeedWidget.o"
+	@echo "... source/hud/SpeedWidget.i"
+	@echo "... source/hud/SpeedWidget.s"
+	@echo "... source/hud/VerticalSpeedWidget.o"
+	@echo "... source/hud/VerticalSpeedWidget.i"
+	@echo "... source/hud/VerticalSpeedWidget.s"
 	@echo "... source/main.o"
 	@echo "... source/main.i"
 	@echo "... source/main.s"
