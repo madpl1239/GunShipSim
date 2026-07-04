@@ -1,3 +1,8 @@
+/*
+ * HUD.hpp
+ * 
+ * 04-07-2026 by madpl
+ */
 #pragma once
 
 #include <SFML/Graphics.hpp>
@@ -13,7 +18,7 @@ class HUD
 public:
 	HUD();
 	
-	bool initialize(const char *fontPath);
+	bool initialize(const char* fontPath);
 	
 	void setHeadingDegrees(float headingDegrees);
 	void setAltitudeMeters(float altitudeMeters);
@@ -21,7 +26,7 @@ public:
 	void setSpeedMetersPerSecond(float speedMetersPerSecond);
 	void setVerticalSpeedMetersPerSecond(float verticalSpeedMetersPerSecond);
 	
-	void draw(sf::RenderWindow &window);
+	void draw(sf::RenderWindow& window);
 	
 private:
 	sf::Font m_font;
@@ -33,9 +38,9 @@ private:
 	float m_speedMetersPerSecond;
 	float m_verticalSpeedMetersPerSecond;
 	
-	CompassWidget m_compassWidget;
-	AltimeterWidget m_altimeterWidget;
 	SpeedWidget m_speedWidget;
-	AGLWidget m_aglWidget;
+	CompassWidget m_compassWidget;
 	VerticalSpeedWidget m_verticalSpeedWidget;
+	AGLWidget m_aglWidget;
+	AltimeterWidget m_altimeterWidget;
 };

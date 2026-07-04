@@ -1,9 +1,10 @@
 /*
- * CompassWidget.cpp
+ * Compass.cpp
+ * 
+ * 04-07-2026 by madpl
  */
-
-#include <hud/CompassWidget.hpp>
 #include <cmath>
+#include <hud/CompassWidget.hpp>
 
 
 CompassWidget::CompassWidget():
@@ -17,7 +18,7 @@ CompassWidget::CompassWidget():
 }
 
 
-void CompassWidget::setFont(const sf::Font *font)
+void CompassWidget::setFont(const sf::Font* font)
 {
 	m_font = font;
 }
@@ -42,7 +43,7 @@ void CompassWidget::setRadius(float radius)
 }
 
 
-void CompassWidget::draw(sf::RenderTarget &target) const
+void CompassWidget::draw(sf::RenderTarget& target) const
 {
 	sf::CircleShape bezel(m_radius);
 	bezel.setOrigin(m_radius, m_radius);
@@ -122,14 +123,6 @@ void CompassWidget::draw(sf::RenderTarget &target) const
 	
 	sf::ConvexShape pointer;
 	pointer.setPointCount(3);
-	
-	/*
-	pointer.setPoint(0, sf::Vector2f(m_centerX, m_centerY - m_radius + 36.0f));
-	pointer.setPoint(1, sf::Vector2f(m_centerX - 8.0f, m_centerY - m_radius + 52.0f));
-	pointer.setPoint(2, sf::Vector2f(m_centerX + 8.0f, m_centerY - m_radius + 52.0f));
-	pointer.setFillColor(sf::Color(255, 120, 120));
-	*/
-
 	pointer.setPoint(0, sf::Vector2f(m_centerX, m_centerY - m_radius + 6.0f));
 	pointer.setPoint(1, sf::Vector2f(m_centerX - 8.0f, m_centerY - m_radius + 14.0f));
 	pointer.setPoint(2, sf::Vector2f(m_centerX + 8.0f, m_centerY - m_radius + 14.0f));

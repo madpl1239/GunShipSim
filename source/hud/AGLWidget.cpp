@@ -1,30 +1,35 @@
 /*
- * AGLWidget.cpp
+ * AGLWidget.hpp
+ * 
+ * 04-07-2026 by madpl
  */
-
-#include <hud/AGLWidget.hpp>
-
 #include <cmath>
 #include <string>
+#include <hud/AGLWidget.hpp>
 
-AGLWidget::AGLWidget()
-: m_font(nullptr),
-m_altitudeAboveGroundMeters(0.0f),
-m_centerX(0.0f),
-m_centerY(0.0f),
-m_radius(40.0f)
+
+AGLWidget::AGLWidget():
+	m_font(nullptr),
+	m_altitudeAboveGroundMeters(0.0f),
+	m_centerX(0.0f),
+	m_centerY(0.0f),
+	m_radius(40.0f)
 {
+	// empty
 }
 
-void AGLWidget::setFont(const sf::Font *font)
+
+void AGLWidget::setFont(const sf::Font* font)
 {
 	m_font = font;
 }
+
 
 void AGLWidget::setAltitudeAboveGroundMeters(float altitudeAboveGroundMeters)
 {
 	m_altitudeAboveGroundMeters = altitudeAboveGroundMeters;
 }
+
 
 void AGLWidget::setPosition(float x, float y)
 {
@@ -32,12 +37,14 @@ void AGLWidget::setPosition(float x, float y)
 	m_centerY = y;
 }
 
+
 void AGLWidget::setRadius(float radius)
 {
 	m_radius = radius;
 }
 
-void AGLWidget::draw(sf::RenderTarget &target) const
+
+void AGLWidget::draw(sf::RenderTarget& target) const
 {
 	sf::CircleShape bezel(m_radius);
 	bezel.setOrigin(m_radius, m_radius);
@@ -59,11 +66,9 @@ void AGLWidget::draw(sf::RenderTarget &target) const
 		float innerR = outerR - 16.0f;
 		
 		sf::Vertex line[2];
-		line[0].position = sf::Vector2f(
-			m_centerX + std::cos(angleRad) * innerR,
+		line[0].position = sf::Vector2f(m_centerX + std::cos(angleRad) * innerR,
 										m_centerY + std::sin(angleRad) * innerR);
-		line[1].position = sf::Vector2f(
-			m_centerX + std::cos(angleRad) * outerR,
+		line[1].position = sf::Vector2f(m_centerX + std::cos(angleRad) * outerR,
 										m_centerY + std::sin(angleRad) * outerR);
 		
 		line[0].color = sf::Color(170, 220, 170);
@@ -77,16 +82,14 @@ void AGLWidget::draw(sf::RenderTarget &target) const
 			
 			sf::Text text;
 			text.setFont(*m_font);
-			text.setCharacterSize(16);
+			text.setCharacterSize(14);
 			text.setString(std::to_string(labelValue));
 			text.setFillColor(sf::Color(220, 255, 220));
 			
 			sf::FloatRect bounds = text.getLocalBounds();
-			text.setOrigin(
-				bounds.left + bounds.width * 0.5f,
-				bounds.top + bounds.height * 0.5f);
-			text.setPosition(
-				m_centerX + std::cos(angleRad) * (m_radius - 31.0f),
+			text.setOrigin(bounds.left + bounds.width * 0.5f,
+						   bounds.top + bounds.height * 0.5f);
+			text.setPosition(m_centerX + std::cos(angleRad) * (m_radius - 31.0f),
 							 m_centerY + std::sin(angleRad) * (m_radius - 31.0f));
 			
 			target.draw(text);
@@ -95,14 +98,10 @@ void AGLWidget::draw(sf::RenderTarget &target) const
 	
 	float clampedAltitude = m_altitudeAboveGroundMeters;
 	if(clampedAltitude < 0.0f)
-	{
 		clampedAltitude = 0.0f;
-	}
 	
 	if(clampedAltitude > 200.0f)
-	{
 		clampedAltitude = 200.0f;
-	}
 	
 	float normalized = clampedAltitude / 200.0f;
 	float needleAngleDeg = -140.0f + normalized * 280.0f;
@@ -126,7 +125,7 @@ void AGLWidget::draw(sf::RenderTarget &target) const
 	{
 		sf::RectangleShape valueBox(sf::Vector2f(72.0f, 24.0f));
 		valueBox.setOrigin(36.0f, 12.0f);
-		valueBox.setPosition(m_centerX - 24.0f, m_centerY + 8.0f);
+		valueBox.setPosition(m_centerX - 45.0f, m_centerY + 3.0f);
 		valueBox.setFillColor(sf::Color(8, 12, 18, 230));
 		valueBox.setOutlineThickness(1.0f);
 		valueBox.setOutlineColor(sf::Color(100, 140, 100));
@@ -140,24 +139,22 @@ void AGLWidget::draw(sf::RenderTarget &target) const
 		valueText.setFillColor(sf::Color(220, 255, 220));
 		
 		sf::FloatRect valueBounds = valueText.getLocalBounds();
-		valueText.setOrigin(
-			valueBounds.left + valueBounds.width * 0.5f,
-			valueBounds.top + valueBounds.height * 0.5f);
-		valueText.setPosition(m_centerX - 24.0f, m_centerY + 8.0f);
+		valueText.setOrigin(valueBounds.left + valueBounds.width * 0.5f,
+							valueBounds.top + valueBounds.height * 0.5f);
+		valueText.setPosition(m_centerX - 45.0f, m_centerY + 3.0f);
 		
 		target.draw(valueText);
 		
 		sf::Text label;
 		label.setFont(*m_font);
-		label.setCharacterSize(13);
+		label.setCharacterSize(14);
 		label.setString("AGL");
 		label.setFillColor(sf::Color(180, 220, 180));
 		
 		sf::FloatRect labelBounds = label.getLocalBounds();
-		label.setOrigin(
-			labelBounds.left + labelBounds.width * 0.5f,
-			labelBounds.top + labelBounds.height * 0.5f);
-		label.setPosition(m_centerX - 22.0f, m_centerY - 26.0f);
+		label.setOrigin(labelBounds.left + labelBounds.width * 0.5f,
+						labelBounds.top + labelBounds.height * 0.5f);
+		label.setPosition(m_centerX, m_centerY - m_radius + 120.0f);
 		
 		target.draw(label);
 	}
