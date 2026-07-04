@@ -25,7 +25,7 @@ int main(void)
 	sf::ContextSettings settings;
 	settings.depthBits = 24;
 	settings.stencilBits = 8;
-	settings.antialiasingLevel = 2;
+	settings.antialiasingLevel = 6;
 	settings.majorVersion = 3;
 	settings.minorVersion = 3;
 	settings.attributeFlags = 0;
@@ -106,7 +106,6 @@ int main(void)
 	camera.updateMatrices();
 	
 	sf::Clock frameClock;
-	float debugTimer = 0.0f;
 	float previousAltitude = helicopter.getY();
 	
 	bool running = true;
