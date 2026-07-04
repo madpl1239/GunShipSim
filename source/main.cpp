@@ -9,7 +9,7 @@
 #include <cmath>
 #include <sstream>
 #include <GL/glew.h>
-#include <SFML/Window.hpp>
+#include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
 #include <SFML/System/Clock.hpp>
 #include <terrain/HGTLoader.hpp>
@@ -17,6 +17,7 @@
 #include <terrain/TerrainRenderer.hpp>
 #include <camera/Camera.hpp>
 #include <helicopter/Helicopter.hpp>
+#include <hud/HUD.hpp>
 
 
 int main(void)
@@ -27,10 +28,10 @@ int main(void)
 	settings.antialiasingLevel = 2;
 	settings.majorVersion = 3;
 	settings.minorVersion = 3;
-	settings.attributeFlags = sf::ContextSettings::Core;
+	settings.attributeFlags = 0;
 	
-	sf::Window window(sf::VideoMode(1280, 720), "GunShipSim - Terrain Test",
-				   sf::Style::Titlebar | sf::Style::Close, settings);
+	sf::RenderWindow window(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
+							sf::Style::Titlebar | sf::Style::Close, settings);
 	
 	window.setVerticalSyncEnabled(false);
 	window.setActive(true);
@@ -51,6 +52,14 @@ int main(void)
 	glDepthFunc(GL_LESS);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
+	
+	HUD hud;
+	if(not hud.initialize("fonts/DejaVuSans.ttf"))
+	{
+		std::cerr << "Failed to load HUD font\n";
+		
+		return -1;
+	}
 	
 	HGTLoader loader;
 	HGTLoader::Data rawData;
@@ -98,6 +107,7 @@ int main(void)
 	
 	sf::Clock frameClock;
 	float debugTimer = 0.0f;
+	float previousAltitude = helicopter.getY();
 	
 	bool running = true;
 	
@@ -133,6 +143,12 @@ int main(void)
 		
 		helicopter.update(dt, terrain);
 		
+		float verticalSpeed = 0.0f;
+		if(dt > 0.0001f)
+			verticalSpeed = (helicopter.getY() - previousAltitude) / dt;
+		
+		previousAltitude = helicopter.getY();
+		
 		const float pi = 3.1415926535f;
 		
 		float yawRadians = helicopter.getYawDegrees() * pi / 180.0f;
@@ -158,6 +174,13 @@ int main(void)
 		camera.setTarget(targetX, targetY, targetZ);
 		camera.updateMatrices();
 		
+		hud.setHeadingDegrees(helicopter.getYawDegrees());
+		hud.setAltitudeMeters(helicopter.getY());
+		hud.setAltitudeAboveGroundMeters(helicopter.getAltitudeAboveGround());
+		hud.setSpeedMetersPerSecond(helicopter.getSpeed());
+		hud.setVerticalSpeedMetersPerSecond(verticalSpeed);
+		
+		/*
 		std::ostringstream hud;
 		hud
 		<< "GunShipSim"
@@ -168,7 +191,6 @@ int main(void)
 		<< " | HDG " << static_cast<int>(helicopter.getYawDegrees()) << " deg"
 		<< " | PITCH " << static_cast<int>(helicopter.getPitchDegrees()) << " deg"
 		<< " | ROLL " << static_cast<int>(helicopter.getRollDegrees()) << " deg";
-		
 		window.setTitle(hud.str());
 		
 		debugTimer += dt;
@@ -193,10 +215,16 @@ int main(void)
 			<< "roll = " << helicopter.getRollDegrees()
 			<< "\n";
 		}
+		*/
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		
 		renderer.render(camera.getViewProjectionMatrix(), glm::vec3(camX, camY, camZ));
+		
+		// HUD
+		window.pushGLStates();
+		hud.draw(window);
+		window.popGLStates();
 		
 		window.display();
 	}

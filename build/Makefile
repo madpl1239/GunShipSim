@@ -568,6 +568,30 @@ source/hud/AltimeterWidget.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/AltimeterWidget.cpp.s
 .PHONY : source/hud/AltimeterWidget.cpp.s
 
+source/hud/CompassWidget.o: source/hud/CompassWidget.cpp.o
+.PHONY : source/hud/CompassWidget.o
+
+# target to build an object file
+source/hud/CompassWidget.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/CompassWidget.cpp.o
+.PHONY : source/hud/CompassWidget.cpp.o
+
+source/hud/CompassWidget.i: source/hud/CompassWidget.cpp.i
+.PHONY : source/hud/CompassWidget.i
+
+# target to preprocess a source file
+source/hud/CompassWidget.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/CompassWidget.cpp.i
+.PHONY : source/hud/CompassWidget.cpp.i
+
+source/hud/CompassWidget.s: source/hud/CompassWidget.cpp.s
+.PHONY : source/hud/CompassWidget.s
+
+# target to generate assembly for a file
+source/hud/CompassWidget.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gunsim.dir/build.make CMakeFiles/gunsim.dir/source/hud/CompassWidget.cpp.s
+.PHONY : source/hud/CompassWidget.cpp.s
+
 source/hud/FuelWidget.o: source/hud/FuelWidget.cpp.o
 .PHONY : source/hud/FuelWidget.o
 
@@ -1184,6 +1208,9 @@ help:
 	@echo "... source/hud/AltimeterWidget.o"
 	@echo "... source/hud/AltimeterWidget.i"
 	@echo "... source/hud/AltimeterWidget.s"
+	@echo "... source/hud/CompassWidget.o"
+	@echo "... source/hud/CompassWidget.i"
+	@echo "... source/hud/CompassWidget.s"
 	@echo "... source/hud/FuelWidget.o"
 	@echo "... source/hud/FuelWidget.i"
 	@echo "... source/hud/FuelWidget.s"
