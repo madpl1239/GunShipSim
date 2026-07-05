@@ -24,13 +24,13 @@ HelicopterInputState HelicopterInput::readInput() const
 		state.brake = true;
 	}
 	
-	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+	if(sf::Keyboard::isKeyPressed(sf::Keyboard::A))
 		state.yawInput -= 1.0f;
 	
 	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::D))
 		state.yawInput += 1.0f;
 	
-	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
+	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
 		state.verticalInput += 1.0f;
 	
 	else if(sf::Keyboard::isKeyPressed(sf::Keyboard::E))
