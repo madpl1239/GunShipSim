@@ -39,6 +39,8 @@ private:
 	void processRealtimeInput();
 	void updateStateListener();
 	
+	static constexpr float FIXED_DT = 1.0f / 60.0f;
+	
 	sf::RenderWindow m_window;
 	StateManager m_stateManager;
 	EventDispatcher m_dispatcher;

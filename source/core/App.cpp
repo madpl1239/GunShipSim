@@ -72,18 +72,27 @@ bool App::initialize()
 void App::run()
 {
 	sf::Clock frameClock;
+	float accumulator = 0.0f;
+	
 	
 	while(m_running and m_window.isOpen())
 	{
 		float dt = frameClock.restart().asSeconds();
-		if(dt > 0.1f)
-			dt = 0.1f;
+		if(dt > 0.25f)
+			dt = 0.25f;
+		
+		accumulator += dt;
 		
 		processSystemEvents();
-		processRealtimeInput();
 		
-		m_stateManager.update(dt);
-		updateStateListener();
+		while(accumulator > FIXED_DT)
+		{
+			processRealtimeInput();
+			m_stateManager.update(FIXED_DT);
+			updateStateListener();
+			
+			accumulator -= FIXED_DT;
+		}
 		
 		m_stateManager.render();
 		m_window.display();
