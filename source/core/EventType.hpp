@@ -1,7 +1,7 @@
 /*
  * EventType.hpp
  * 
- * 05-07-2026 by mapdpl
+ * 05-07-2026 by madpl
  */
 #pragma once
 
@@ -12,24 +12,10 @@ enum class EventType
 	
 	QuitRequested,
 	WindowResized,
+	PauseRequested,
 	
-	KeyPressed,
-	KeyReleased,
+	StateChanged,
 	
-	MouseButtonPressed,
-	MouseButtonReleased,
-	MouseMoved,
-	
-	CollectiveChanged,
-	CyclicPitchChanged,
-	CyclicRollChanged,
-	YawPedalChanged,
-	
-	FireCannonPressed,
-	FireCannonReleased,
-	
-	LaunchMissilePressed,
-	LaunchMissileReleased,
-	
-	PauseRequested
+	MissionStarted,
+	MissionEnded
 };

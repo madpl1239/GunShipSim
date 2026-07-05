@@ -120,6 +120,11 @@ void MissionState::onEnter()
 	captureCurrentRenderState();
 	m_previousRenderState = m_currentRenderState;
 	
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glClearDepth(1.0f);
+	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
+	
 	updateHud();
 }
 

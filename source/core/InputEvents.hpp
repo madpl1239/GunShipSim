@@ -1,6 +1,6 @@
 /*
  * InputEvents.hpp
- * 
+ *
  * 05-07-2026 by madpl
  */
 #pragma once
@@ -43,26 +43,6 @@ public:
 private:
 	unsigned m_width;
 	unsigned m_height;
-};
-
-
-class AxisChangedEvent: public Event
-{
-public:
-	AxisChangedEvent(EventType type, float value):
-		Event(type),
-		m_value(value)
-	{
-		// empty
-	}
-	
-	float getValue() const
-	{
-		return m_value;
-	}
-	
-private:
-	float m_value;
 };
 
 

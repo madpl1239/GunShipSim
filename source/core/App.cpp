@@ -12,6 +12,7 @@
 #include <memory>
 #include <core/App.hpp>
 #include <core/InputEvents.hpp>
+#include <states/MainMenuState.hpp>
 
 
 App::App():
@@ -61,7 +62,7 @@ bool App::initialize()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
-	m_stateManager.pushState(std::make_unique<MissionState>(m_stateManager, *this));
+	m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
 	m_stateManager.update(0.0f);
 	
 	updateStateListener();
