@@ -13,6 +13,15 @@
 #include <core/InputEvents.hpp>
 
 
+namespace
+{
+	float lerp(float a, float b, float alpha)
+	{
+		return a + (b - a) * alpha;
+	}
+}
+
+
 MissionState::MissionState(StateManager& manager, App& app):
 	IState(manager),
 	m_app(app),
@@ -24,9 +33,8 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_inputState{},
 	m_previousAltitude(0.0f),
 	m_verticalSpeed(0.0f),
-	m_camX(0.0f),
-	m_camY(0.0f),
-	m_camZ(0.0f)
+	m_previousRenderState{},
+	m_currentRenderState{}
 {
 	resetInputState();
 }
@@ -57,9 +65,6 @@ void MissionState::onEnter()
 		return;
 	}
 	
-	std::cout << "rawData.width = " << rawData.width << "\n";
-	std::cout << "rawData.height = " << rawData.height << "\n";
-	
 	if(not m_terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
 									34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
@@ -67,11 +72,6 @@ void MissionState::onEnter()
 		
 		return;
 	}
-	
-	std::cout << "terrain width = " << m_terrain.getWorldSizeX() << "\n";
-	std::cout << "terrain height = " << m_terrain.getWorldSizeZ() << "\n";
-	std::cout << "spacing = " << m_terrain.getWorldSizeX() / float(m_terrain.getWidth() - 1)
-				<< "\n";
 	
 	if(not m_renderer.create(m_terrain))
 	{
@@ -89,7 +89,9 @@ void MissionState::onEnter()
 	m_previousAltitude = m_helicopter.getY();
 	m_verticalSpeed = 0.0f;
 	
-	updateCamera();
+	captureCurrentRenderState();
+	m_previousRenderState = m_currentRenderState;
+	
 	updateHud();
 }
 
@@ -107,6 +109,7 @@ void MissionState::onEvent(const Event& event)
 		case EventType::QuitRequested:
 		{
 			m_app.stop();
+			
 			break;
 		}
 		
@@ -121,6 +124,7 @@ void MissionState::onEvent(const Event& event)
 							static_cast<float>(resizedEvent.getHeight());
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
+			
 			break;
 		}
 		
@@ -129,6 +133,7 @@ void MissionState::onEvent(const Event& event)
 			const AxisChangedEvent& axisEvent = static_cast<const AxisChangedEvent&>(event);
 			
 			m_inputState.verticalInput = axisEvent.getValue();
+			
 			break;
 		}
 		
@@ -138,6 +143,7 @@ void MissionState::onEvent(const Event& event)
 			
 			m_inputState.forwardInput = axisEvent.getValue();
 			m_inputState.brake = (axisEvent.getValue() < 0.0f);
+			
 			break;
 		}
 		
@@ -146,26 +152,17 @@ void MissionState::onEvent(const Event& event)
 			const AxisChangedEvent& axisEvent = static_cast<const AxisChangedEvent&>(event);
 			
 			m_inputState.yawInput = axisEvent.getValue();
+			
 			break;
 		}
 		
 		case EventType::PauseRequested:
 		{
 			m_app.stop();
+			
 			break;
 		}
 		
-		case EventType::FireCannonPressed:
-		case EventType::FireCannonReleased:
-		case EventType::LaunchMissilePressed:
-		case EventType::LaunchMissileReleased:
-		case EventType::KeyPressed:
-		case EventType::KeyReleased:
-		case EventType::MouseButtonPressed:
-		case EventType::MouseButtonReleased:
-		case EventType::MouseMoved:
-		case EventType::CyclicRollChanged:
-		case EventType::Unknown:
 		default:
 			break;
 	}
@@ -174,6 +171,8 @@ void MissionState::onEvent(const Event& event)
 
 void MissionState::update(float dt)
 {
+	m_previousRenderState = m_currentRenderState;
+	
 	m_helicopter.update(dt, m_terrain);
 	
 	if(dt > 0.0001f)
@@ -181,51 +180,28 @@ void MissionState::update(float dt)
 	
 	m_previousAltitude = m_helicopter.getY();
 	
-	updateCamera();
+	captureCurrentRenderState();
 	updateHud();
 }
 
 
-void MissionState::render()
+void MissionState::render(float alpha)
 {
+	const RenderState state = interpolateRenderState(alpha);
+	
+	m_camera.setPosition(state.camX, state.camY, state.camZ);
+	m_camera.setTarget(state.targetX, state.targetY, state.targetZ);
+	m_camera.setRollDegrees(-state.helicopterRollDegrees);
+	m_camera.updateMatrices();
+	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	m_renderer.render(m_camera.getViewProjectionMatrix(),
-					  glm::vec3(m_camX, m_camY, m_camZ));
+					  glm::vec3(state.camX, state.camY, state.camZ));
 	
 	m_app.getWindow().pushGLStates();
 	m_hud.draw(m_app.getWindow());
 	m_app.getWindow().popGLStates();
-}
-
-
-void MissionState::updateCamera()
-{
-	const float pi = 3.1415926535f;
-	
-	float yawRadians = m_helicopter.getYawDegrees() * pi / 180.0f;
-	float pitchRadians = m_helicopter.getPitchDegrees() * pi / 180.0f;
-	
-	float forwardX = std::sin(yawRadians) * std::cos(pitchRadians);
-	float forwardY = std::sin(pitchRadians);
-	float forwardZ = -std::cos(yawRadians) * std::cos(pitchRadians);
-	
-	float cockpitForwardOffset = 1.2f;
-	float cockpitUpOffset = 0.6f;
-	float lookDistance = 250.0f;
-	
-	m_camX = m_helicopter.getX() + forwardX * cockpitForwardOffset;
-	m_camY = m_helicopter.getY() + cockpitUpOffset;
-	m_camZ = m_helicopter.getZ() + forwardZ * cockpitForwardOffset;
-	
-	float targetX = m_camX + forwardX * lookDistance;
-	float targetY = m_camY + forwardY * lookDistance;
-	float targetZ = m_camZ + forwardZ * lookDistance;
-	
-	m_camera.setPosition(m_camX, m_camY, m_camZ);
-	m_camera.setTarget(targetX, targetY, targetZ);
-	m_camera.setRollDegrees(-m_helicopter.getRollDegrees());
-	m_camera.updateMatrices();
 }
 
 
@@ -236,6 +212,88 @@ void MissionState::updateHud()
 	m_hud.setAltitudeAboveGroundMeters(m_helicopter.getAltitudeAboveGround());
 	m_hud.setSpeedMetersPerSecond(m_helicopter.getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
+}
+
+
+void MissionState::captureCurrentRenderState()
+{
+	const float pi = 3.1415926535f;
+	
+	float helicopterX = m_helicopter.getX();
+	float helicopterY = m_helicopter.getY();
+	float helicopterZ = m_helicopter.getZ();
+	
+	float helicopterYawDegrees = m_helicopter.getYawDegrees();
+	float helicopterPitchDegrees = m_helicopter.getPitchDegrees();
+	float helicopterRollDegrees = m_helicopter.getRollDegrees();
+	
+	float yawRadians = helicopterYawDegrees * pi / 180.0f;
+	float pitchRadians = helicopterPitchDegrees * pi / 180.0f;
+	
+	float forwardX = std::sin(yawRadians) * std::cos(pitchRadians);
+	float forwardY = std::sin(pitchRadians);
+	float forwardZ = -std::cos(yawRadians) * std::cos(pitchRadians);
+	
+	float cockpitForwardOffset = 1.2f;
+	float cockpitUpOffset = 0.6f;
+	float lookDistance = 250.0f;
+	
+	m_currentRenderState.helicopterX = helicopterX;
+	m_currentRenderState.helicopterY = helicopterY;
+	m_currentRenderState.helicopterZ = helicopterZ;
+	
+	m_currentRenderState.helicopterYawDegrees = helicopterYawDegrees;
+	m_currentRenderState.helicopterPitchDegrees = helicopterPitchDegrees;
+	m_currentRenderState.helicopterRollDegrees = helicopterRollDegrees;
+	
+	m_currentRenderState.camX = helicopterX + forwardX * cockpitForwardOffset;
+	m_currentRenderState.camY = helicopterY + cockpitUpOffset;
+	m_currentRenderState.camZ = helicopterZ + forwardZ * cockpitForwardOffset;
+	
+	m_currentRenderState.targetX = m_currentRenderState.camX + forwardX * lookDistance;
+	m_currentRenderState.targetY = m_currentRenderState.camY + forwardY * lookDistance;
+	m_currentRenderState.targetZ = m_currentRenderState.camZ + forwardZ * lookDistance;
+}
+
+
+MissionState::RenderState MissionState::interpolateRenderState(float alpha) const
+{
+	RenderState state{};
+	
+	state.helicopterX = lerp(m_previousRenderState.helicopterX,
+							 m_currentRenderState.helicopterX, alpha);
+	
+	state.helicopterY = lerp(m_previousRenderState.helicopterY,
+							 m_currentRenderState.helicopterY, alpha);
+	
+	state.helicopterZ = lerp(m_previousRenderState.helicopterZ,
+							 m_currentRenderState.helicopterZ, alpha);
+	
+	state.helicopterYawDegrees = lerp(m_previousRenderState.helicopterYawDegrees,
+									  m_currentRenderState.helicopterYawDegrees, alpha);
+	
+	state.helicopterPitchDegrees = lerp(m_previousRenderState.helicopterPitchDegrees,
+										m_currentRenderState.helicopterPitchDegrees, alpha);
+	
+	state.helicopterRollDegrees = lerp(m_previousRenderState.helicopterRollDegrees,
+									   m_currentRenderState.helicopterRollDegrees, alpha);
+	
+	state.camX = lerp(m_previousRenderState.camX, m_currentRenderState.camX, alpha);
+	
+	state.camY = lerp(m_previousRenderState.camY, m_currentRenderState.camY, alpha);
+	
+	state.camZ = lerp(m_previousRenderState.camZ, m_currentRenderState.camZ, alpha);
+	
+	state.targetX = lerp(m_previousRenderState.targetX,
+						 m_currentRenderState.targetX, alpha);
+	
+	state.targetY = lerp(m_previousRenderState.targetY,
+						 m_currentRenderState.targetY, alpha);
+	
+	state.targetZ = lerp(m_previousRenderState.targetZ,
+						 m_currentRenderState.targetZ, alpha);
+	
+	return state;
 }
 
 

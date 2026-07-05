@@ -25,7 +25,7 @@ public:
 	IState* getCurrentState() const;
 	
 	void update(float dt);
-	void render();
+	void render(float alpha);
 	
 private:
 	void applyPendingChanges();

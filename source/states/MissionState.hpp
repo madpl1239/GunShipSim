@@ -1,7 +1,7 @@
 /*
  * MissionState.hpp
- * 
- * 05-072026 by madpl
+ *
+ * 05-07-2026 by madpl
  */
 #pragma once
 
@@ -28,11 +28,31 @@ public:
 	void onExit() override;
 	void onEvent(const Event& event) override;
 	void update(float dt) override;
-	void render() override;
+	void render(float alpha) override;
 	
 private:
-	void updateCamera();
+	struct RenderState
+	{
+		float helicopterX;
+		float helicopterY;
+		float helicopterZ;
+		
+		float helicopterYawDegrees;
+		float helicopterPitchDegrees;
+		float helicopterRollDegrees;
+		
+		float camX;
+		float camY;
+		float camZ;
+		
+		float targetX;
+		float targetY;
+		float targetZ;
+	};
+	
 	void updateHud();
+	void captureCurrentRenderState();
+	RenderState interpolateRenderState(float alpha) const;
 	void resetInputState();
 	
 	App& m_app;
@@ -47,7 +67,6 @@ private:
 	float m_previousAltitude;
 	float m_verticalSpeed;
 	
-	float m_camX;
-	float m_camY;
-	float m_camZ;
+	RenderState m_previousRenderState;
+	RenderState m_currentRenderState;
 };

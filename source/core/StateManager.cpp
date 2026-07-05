@@ -1,6 +1,6 @@
 /*
  * StateManager.cpp
- * 
+ *
  * 05-07-2026 by madpl
  */
 #include <core/StateManager.hpp>
@@ -21,7 +21,6 @@ void StateManager::popState()
 void StateManager::replaceState(std::unique_ptr<IState> state)
 {
 	m_popRequested = true;
-	
 	m_pendingAdd.push_back(std::move(state));
 }
 
@@ -66,10 +65,10 @@ void StateManager::update(float dt)
 }
 
 
-void StateManager::render()
+void StateManager::render(float alpha)
 {
 	if(m_states.empty())
 		return;
 	
-	m_states.back()->render();
+	m_states.back()->render(alpha);
 }
