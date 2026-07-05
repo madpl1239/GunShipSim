@@ -5,26 +5,32 @@
  */
 #pragma once
 
-#include <SFML/Window/Event.hpp>
+#include <core/IListener.hpp>
 
 class StateManager;
 
 
-class IState
+class IState: public IListener
 {
 public:
 	explicit IState(StateManager& manager):
-		m_manager(manager)
+	m_manager(manager)
 	{
 		// empty
 	}
 	
 	virtual ~IState() = default;
 	
-	virtual void onEnter(){}
-	virtual void onExit(){}
+	virtual void onEnter()
+	{
+		// empty
+	}
 	
-	virtual void handleEvent(const sf::Event& event) = 0;
+	virtual void onExit()
+	{
+		// empty
+	}
+	
 	virtual void update(float dt) = 0;
 	virtual void render() = 0;
 	

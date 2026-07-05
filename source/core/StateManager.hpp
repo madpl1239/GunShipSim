@@ -22,7 +22,8 @@ public:
 		return m_states.empty();
 	}
 	
-	void handleEvent(const sf::Event& event);
+	IState* getCurrentState() const;
+	
 	void update(float dt);
 	void render();
 	

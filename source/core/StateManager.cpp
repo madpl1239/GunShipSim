@@ -26,6 +26,15 @@ void StateManager::replaceState(std::unique_ptr<IState> state)
 }
 
 
+IState* StateManager::getCurrentState() const
+{
+	if(m_states.empty())
+		return nullptr;
+	
+	return m_states.back().get();
+}
+
+
 void StateManager::applyPendingChanges()
 {
 	if(m_popRequested and !m_states.empty())
@@ -36,9 +45,9 @@ void StateManager::applyPendingChanges()
 		m_popRequested = false;
 	}
 	
-	for(auto& s : m_pendingAdd)
+	for(auto& state : m_pendingAdd)
 	{
-		m_states.push_back(std::move(s));
+		m_states.push_back(std::move(state));
 		m_states.back()->onEnter();
 	}
 	
@@ -46,24 +55,21 @@ void StateManager::applyPendingChanges()
 }
 
 
-void StateManager::handleEvent(const sf::Event& event)
-{
-	if(not m_states.empty())
-		m_states.back()->handleEvent(event);
-}
-
-
 void StateManager::update(float dt)
 {
 	applyPendingChanges();
 	
-	if(not m_states.empty())
-		m_states.back()->update(dt);
+	if(m_states.empty())
+		return;
+	
+	m_states.back()->update(dt);
 }
 
 
 void StateManager::render()
 {
-	if(not m_states.empty())
-		m_states.back()->render();
+	if(m_states.empty())
+		return;
+	
+	m_states.back()->render();
 }
