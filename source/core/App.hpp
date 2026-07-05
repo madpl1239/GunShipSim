@@ -6,7 +6,9 @@
 #pragma once
 
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <cstdint>
 #include <core/EventDispatcher.hpp>
+#include <core/InputSnapshot.hpp>
 #include <core/StateManager.hpp>
 
 
@@ -36,14 +38,17 @@ public:
 	
 private:
 	void processSystemEvents();
-	void processRealtimeInput();
+	InputSnapshot sampleInputSnapshot() const;
 	void updateStateListener();
 	
 	static constexpr float FIXED_DT = 1.0f / 60.0f;
+	static constexpr int MAX_UPDATES_PER_FRAME = 8;
 	
 	sf::RenderWindow m_window;
 	StateManager m_stateManager;
 	EventDispatcher m_dispatcher;
 	bool m_running;
 	IState* m_registeredStateListener;
+	bool m_pauseRequested;
+	std::uint64_t m_tickCounter;
 };

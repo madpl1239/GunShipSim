@@ -6,6 +6,7 @@
 #pragma once
 
 #include <core/IState.hpp>
+#include <core/InputSnapshot.hpp>
 #include <camera/Camera.hpp>
 #include <helicopter/Helicopter.hpp>
 #include <helicopter/HelicopterInput.hpp>
@@ -13,7 +14,6 @@
 #include <terrain/HGTLoader.hpp>
 #include <terrain/TerrainData.hpp>
 #include <terrain/TerrainRenderer.hpp>
-
 
 class App;
 
@@ -29,6 +29,8 @@ public:
 	void onEvent(const Event& event) override;
 	void update(float dt) override;
 	void render(float alpha) override;
+	
+	void setInputSnapshot(const InputSnapshot& inputSnapshot);
 	
 private:
 	struct RenderState
@@ -54,6 +56,7 @@ private:
 	void captureCurrentRenderState();
 	RenderState interpolateRenderState(float alpha) const;
 	void resetInputState();
+	void applyInputSnapshot();
 	
 	App& m_app;
 	
@@ -63,6 +66,7 @@ private:
 	Helicopter m_helicopter;
 	Camera m_camera;
 	HelicopterInputState m_inputState;
+	InputSnapshot m_inputSnapshot;
 	
 	float m_previousAltitude;
 	float m_verticalSpeed;

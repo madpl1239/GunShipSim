@@ -19,6 +19,33 @@ namespace
 	{
 		return a + (b - a) * alpha;
 	}
+	
+	float normalizeAngleDegrees(float angleDegrees)
+	{
+		while(angleDegrees >= 360.0f)
+			angleDegrees -= 360.0f;
+		
+		while(angleDegrees < 0.0f)
+			angleDegrees += 360.0f;
+		
+		return angleDegrees;
+	}
+	
+	float lerpAngleDegrees(float fromDegrees, float toDegrees, float alpha)
+	{
+		fromDegrees = normalizeAngleDegrees(fromDegrees);
+		toDegrees = normalizeAngleDegrees(toDegrees);
+		
+		float delta = toDegrees - fromDegrees;
+		
+		if(delta > 180.0f)
+			delta -= 360.0f;
+		
+		else if(delta < -180.0f)
+			delta += 360.0f;
+		
+		return normalizeAngleDegrees(fromDegrees + delta * alpha);
+	}
 }
 
 
@@ -31,6 +58,7 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_helicopter(),
 	m_camera(),
 	m_inputState{},
+	m_inputSnapshot{},
 	m_previousAltitude(0.0f),
 	m_verticalSpeed(0.0f),
 	m_previousRenderState{},
@@ -115,7 +143,8 @@ void MissionState::onEvent(const Event& event)
 		
 		case EventType::WindowResized:
 		{
-			const WindowResizedEvent& resizedEvent = static_cast<const WindowResizedEvent&>(event);
+			const WindowResizedEvent& resizedEvent =
+			static_cast<const WindowResizedEvent&>(event);
 			
 			glViewport(0, 0, static_cast<GLsizei>(resizedEvent.getWidth()),
 					   static_cast<GLsizei>(resizedEvent.getHeight()));
@@ -124,34 +153,6 @@ void MissionState::onEvent(const Event& event)
 							static_cast<float>(resizedEvent.getHeight());
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
-			
-			break;
-		}
-		
-		case EventType::CollectiveChanged:
-		{
-			const AxisChangedEvent& axisEvent = static_cast<const AxisChangedEvent&>(event);
-			
-			m_inputState.verticalInput = axisEvent.getValue();
-			
-			break;
-		}
-		
-		case EventType::CyclicPitchChanged:
-		{
-			const AxisChangedEvent& axisEvent = static_cast<const AxisChangedEvent&>(event);
-			
-			m_inputState.forwardInput = axisEvent.getValue();
-			m_inputState.brake = (axisEvent.getValue() < 0.0f);
-			
-			break;
-		}
-		
-		case EventType::YawPedalChanged:
-		{
-			const AxisChangedEvent& axisEvent = static_cast<const AxisChangedEvent&>(event);
-			
-			m_inputState.yawInput = axisEvent.getValue();
 			
 			break;
 		}
@@ -172,6 +173,8 @@ void MissionState::onEvent(const Event& event)
 void MissionState::update(float dt)
 {
 	m_previousRenderState = m_currentRenderState;
+	
+	applyInputSnapshot();
 	
 	m_helicopter.update(dt, m_terrain);
 	
@@ -202,6 +205,12 @@ void MissionState::render(float alpha)
 	m_app.getWindow().pushGLStates();
 	m_hud.draw(m_app.getWindow());
 	m_app.getWindow().popGLStates();
+}
+
+
+void MissionState::setInputSnapshot(const InputSnapshot& inputSnapshot)
+{
+	m_inputSnapshot = inputSnapshot;
 }
 
 
@@ -269,20 +278,23 @@ MissionState::RenderState MissionState::interpolateRenderState(float alpha) cons
 	state.helicopterZ = lerp(m_previousRenderState.helicopterZ,
 							 m_currentRenderState.helicopterZ, alpha);
 	
-	state.helicopterYawDegrees = lerp(m_previousRenderState.helicopterYawDegrees,
-									  m_currentRenderState.helicopterYawDegrees, alpha);
+	state.helicopterYawDegrees = lerpAngleDegrees(m_previousRenderState.helicopterYawDegrees,
+												  m_currentRenderState.helicopterYawDegrees, alpha);
 	
-	state.helicopterPitchDegrees = lerp(m_previousRenderState.helicopterPitchDegrees,
-										m_currentRenderState.helicopterPitchDegrees, alpha);
+	state.helicopterPitchDegrees = lerpAngleDegrees(m_previousRenderState.helicopterPitchDegrees,
+													m_currentRenderState.helicopterPitchDegrees, alpha);
 	
-	state.helicopterRollDegrees = lerp(m_previousRenderState.helicopterRollDegrees,
-									   m_currentRenderState.helicopterRollDegrees, alpha);
+	state.helicopterRollDegrees = lerpAngleDegrees(m_previousRenderState.helicopterRollDegrees,
+												   m_currentRenderState.helicopterRollDegrees, alpha);
 	
 	state.camX = lerp(m_previousRenderState.camX, m_currentRenderState.camX, alpha);
 	
-	state.camY = lerp(m_previousRenderState.camY, m_currentRenderState.camY, alpha);
+	state.camY = lerp(m_previousRenderState.camY,
+					  m_currentRenderState.camY,
+		alpha);
 	
-	state.camZ = lerp(m_previousRenderState.camZ, m_currentRenderState.camZ, alpha);
+	state.camZ = lerp(m_previousRenderState.camZ,
+					  m_currentRenderState.camZ, alpha);
 	
 	state.targetX = lerp(m_previousRenderState.targetX,
 						 m_currentRenderState.targetX, alpha);
@@ -303,4 +315,13 @@ void MissionState::resetInputState()
 	m_inputState.yawInput = 0.0f;
 	m_inputState.verticalInput = 0.0f;
 	m_inputState.brake = false;
+}
+
+
+void MissionState::applyInputSnapshot()
+{
+	m_inputState.forwardInput = m_inputSnapshot.cyclicPitch;
+	m_inputState.yawInput = m_inputSnapshot.yawPedal;
+	m_inputState.verticalInput = m_inputSnapshot.collective;
+	m_inputState.brake = (m_inputSnapshot.cyclicPitch < 0.0f);
 }

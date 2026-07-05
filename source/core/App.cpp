@@ -3,6 +3,8 @@
  *
  * 05-07-2026 by madpl
  */
+#include <states/MissionState.hpp>
+#include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
 #include <SFML/Window/Keyboard.hpp>
 #include <GL/glew.h>
@@ -10,7 +12,6 @@
 #include <memory>
 #include <core/App.hpp>
 #include <core/InputEvents.hpp>
-#include <states/MissionState.hpp>
 
 
 App::App():
@@ -18,7 +19,9 @@ App::App():
 	m_stateManager(),
 	m_dispatcher(),
 	m_running(false),
-	m_registeredStateListener(nullptr)
+	m_registeredStateListener(nullptr),
+	m_pauseRequested(false),
+	m_tickCounter(0)
 {
 	// empty
 }
@@ -29,12 +32,12 @@ bool App::initialize()
 	sf::ContextSettings settings;
 	settings.depthBits = 24;
 	settings.stencilBits = 8;
-	settings.antialiasingLevel = 4;
+	settings.antialiasingLevel = 6;
 	settings.majorVersion = 3;
 	settings.minorVersion = 3;
 	settings.attributeFlags = 0;
 	
-	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
+	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.6 by madpl 2026",
 				 sf::Style::Titlebar | sf::Style::Close, settings);
 	
 	m_window.setVerticalSyncEnabled(false);
@@ -84,23 +87,47 @@ void App::run()
 		
 		processSystemEvents();
 		
-		while(accumulator >= FIXED_DT)
+		int updatesThisFrame = 0;
+		
+		while(accumulator >= FIXED_DT and updatesThisFrame < MAX_UPDATES_PER_FRAME)
 		{
-			processRealtimeInput();
+			InputSnapshot inputSnapshot = sampleInputSnapshot();
+			
+			if(inputSnapshot.pauseRequested)
+			{
+				ActionEvent event(EventType::PauseRequested);
+				m_dispatcher.dispatch(event);
+				
+				m_pauseRequested = false;
+			}
+			
+			IState* currentState = m_stateManager.getCurrentState();
+			MissionState* missionState = dynamic_cast<MissionState*>(currentState);
+			if(missionState != nullptr)
+				missionState->setInputSnapshot(inputSnapshot);
 			
 			m_stateManager.update(FIXED_DT);
 			updateStateListener();
 			
 			accumulator -= FIXED_DT;
+			
+			++updatesThisFrame;
+			++m_tickCounter;
 		}
 		
+		if(updatesThisFrame == MAX_UPDATES_PER_FRAME and accumulator >= FIXED_DT)
+			accumulator = 0.0f;
+		
 		float alpha = accumulator / FIXED_DT;
+		
 		if(alpha < 0.0f)
 			alpha = 0.0f;
+		
 		else if(alpha > 1.0f)
 			alpha = 1.0f;
 		
 		m_stateManager.render(alpha);
+		
 		m_window.display();
 	}
 }
@@ -109,6 +136,7 @@ void App::run()
 void App::stop()
 {
 	m_running = false;
+	
 	m_window.close();
 }
 
@@ -125,6 +153,7 @@ void App::processSystemEvents()
 			{
 				QuitRequestedEvent event;
 				m_dispatcher.dispatch(event);
+				
 				break;
 			}
 			
@@ -132,16 +161,14 @@ void App::processSystemEvents()
 			{
 				WindowResizedEvent event(sfEvent.size.width, sfEvent.size.height);
 				m_dispatcher.dispatch(event);
+				
 				break;
 			}
 			
 			case sf::Event::KeyPressed:
 			{
 				if(sfEvent.key.code == sf::Keyboard::Escape)
-				{
-					ActionEvent event(EventType::PauseRequested);
-					m_dispatcher.dispatch(event);
-				}
+					m_pauseRequested = true;
 				
 				break;
 			}
@@ -153,54 +180,44 @@ void App::processSystemEvents()
 }
 
 
-void App::processRealtimeInput()
+InputSnapshot App::sampleInputSnapshot() const
 {
-	float collective = 0.0f;
-	float cyclicPitch = 0.0f;
-	float cyclicRoll = 0.0f;
-	float yawPedal = 0.0f;
+	InputSnapshot snapshot{};
+	
+	snapshot.tick = m_tickCounter;
+	snapshot.collective = 0.0f;
+	snapshot.cyclicPitch = 0.0f;
+	snapshot.cyclicRoll = 0.0f;
+	snapshot.yawPedal = 0.0f;
+	snapshot.fireCannon = false;
+	snapshot.launchMissile = false;
+	snapshot.pauseRequested = m_pauseRequested;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::W))
-		cyclicPitch += 1.0f;
+		snapshot.cyclicPitch += 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::S))
-		cyclicPitch -= 1.0f;
+		snapshot.cyclicPitch -= 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::A))
-		yawPedal -= 1.0f;
+		snapshot.yawPedal -= 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::D))
-		yawPedal += 1.0f;
+		snapshot.yawPedal += 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Q))
-		collective += 1.0f;
+		snapshot.collective += 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::E))
-		collective -= 1.0f;
-	
-	AxisChangedEvent collectiveEvent(EventType::CollectiveChanged, collective);
-	m_dispatcher.dispatch(collectiveEvent);
-	
-	AxisChangedEvent cyclicPitchEvent(EventType::CyclicPitchChanged, cyclicPitch);
-	m_dispatcher.dispatch(cyclicPitchEvent);
-	
-	AxisChangedEvent cyclicRollEvent(EventType::CyclicRollChanged, cyclicRoll);
-	m_dispatcher.dispatch(cyclicRollEvent);
-	
-	AxisChangedEvent yawPedalEvent(EventType::YawPedalChanged, yawPedal);
-	m_dispatcher.dispatch(yawPedalEvent);
+		snapshot.collective -= 1.0f;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
-	{
-		ActionEvent event(EventType::FireCannonPressed);
-		m_dispatcher.dispatch(event);
-	}
+		snapshot.fireCannon = true;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
-	{
-		ActionEvent event(EventType::LaunchMissilePressed);
-		m_dispatcher.dispatch(event);
-	}
+		snapshot.launchMissile = true;
+	
+	return snapshot;
 }
 
 
