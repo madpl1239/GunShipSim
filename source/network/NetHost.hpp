@@ -1,9 +1,14 @@
+/*
+ * NetHost.hpp
+ * 
+ * 06-07-2026 by madpl
+ */
 #pragma once
 
 #include <cstdint>
 #include <optional>
 #include <SFML/Network/UdpSocket.hpp>
-#include "NetPacket.hpp"
+#include <network/NetPacket.hpp>
 
 
 class NetHost

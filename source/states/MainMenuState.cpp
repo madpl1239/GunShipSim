@@ -15,6 +15,7 @@
 #include <states/MissionState.hpp>
 #include <states/SettingsState.hpp>
 #include <states/NetworkMenuState.hpp>
+#include <core/Defines.hpp>
 
 
 MainMenuState::MainMenuState(StateManager& manager, App& app):
@@ -83,22 +84,27 @@ void MainMenuState::onEvent(Event& event)
 				case sf::Keyboard::Up:
 					moveSelectionUp();
 					event.stopPropagation();
+					
 					break;
 					
 				case sf::Keyboard::Down:
 					moveSelectionDown();
 					event.stopPropagation();
+					
+					
 					break;
 					
 				case sf::Keyboard::Enter:
 				case sf::Keyboard::Space:
 					activateSelection();
 					event.stopPropagation();
+					
 					break;
 					
 				case sf::Keyboard::Escape:
 					m_app.stop();
 					event.stopPropagation();
+					
 					break;
 					
 				default:
@@ -126,7 +132,7 @@ void MainMenuState::render(float)
 	
 	window.pushGLStates();
 	
-	window.clear(sf::Color(18, 22, 28));
+	window.clear(BACKGROUND_COLOR2);
 	window.draw(m_title);
 	window.draw(makeText("Singleplayer", 220.0f, m_selection == Selection::Singleplayer));
 	window.draw(makeText("Multiplayer", 290.0f, m_selection == Selection::Multiplayer));
@@ -181,7 +187,7 @@ void MainMenuState::moveSelectionDown()
 
 void MainMenuState::rebuildLayout()
 {
-	m_hint.setPosition(80.0f, 470.0f);
+	m_hint.setPosition(HINT_POSX, HINT_POSY);
 }
 
 
@@ -191,7 +197,7 @@ sf::Text MainMenuState::makeText(const std::string& label, float y, bool highlig
 	text.setFont(m_font);
 	text.setString(label);
 	text.setCharacterSize(highlighted ? 34 : 28);
-	text.setFillColor(highlighted ? sf::Color(255, 244, 200) : sf::Color(190, 190, 190));
+	text.setFillColor(highlighted ? HINT_COLOR1 : HINT_COLOR2);
 	text.setPosition(100.0f, y);
 	
 	return text;

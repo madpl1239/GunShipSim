@@ -1,5 +1,10 @@
-#include "NetHost.hpp"
-#include "NetCodec.hpp"
+/*
+ * NetHost.cpp
+ * 
+ * 06-07-2026 by madpl
+ */
+#include <network/NetHost.hpp>
+#include <network/NetCodec.hpp>
 
 
 bool NetHost::start(std::uint16_t port)
@@ -8,6 +13,7 @@ bool NetHost::start(std::uint16_t port)
 		return false;
 	
 	m_socket.setBlocking(false);
+	
 	return true;
 }
 
@@ -31,21 +37,23 @@ bool NetHost::pollInputSnapshot(InputSnapshotPacket& outPacket)
 	if(status != sf::Socket::Done)
 		return false;
 	
-	if(!NetCodec::decode(buffer, received, outPacket))
+	if(not NetCodec::decode(buffer, received, outPacket))
 		return false;
 	
 	m_clientAddress = sender;
 	m_clientPort = senderPort;
 	m_hasClient = true;
+	
 	return true;
 }
 
 
 bool NetHost::sendStateSnapshot(const StateSnapshotPacket& packet)
 {
-	if(!m_hasClient)
+	if(not m_hasClient)
 		return false;
 	
 	auto bytes = NetCodec::encode(packet);
+	
 	return m_socket.send(bytes.data(), bytes.size(), m_clientAddress, m_clientPort) == sf::Socket::Done;
 }

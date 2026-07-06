@@ -10,6 +10,7 @@
 #include <core/Event.hpp>
 #include <core/EventType.hpp>
 #include <core/InputEvents.hpp>
+#include <core/Defines.hpp>
 
 
 SettingsState::SettingsState(StateManager& manager, App& app):
@@ -42,14 +43,14 @@ void SettingsState::onEnter()
 	m_body.setFont(m_font);
 	m_body.setString("Settings are a placeholder for now.\nAudio, graphics and controls will come later.");
 	m_body.setCharacterSize(24);
-	m_body.setFillColor(sf::Color(210, 210, 210));
+	m_body.setFillColor(HINT_COLOR1);
 	m_body.setPosition(80.0f, 170.0f);
 	
 	m_hint.setFont(m_font);
 	m_hint.setString("Press Escape to go back.");
 	m_hint.setCharacterSize(20);
 	m_hint.setFillColor(sf::Color(180, 180, 180));
-	m_hint.setPosition(80.0f, 310.0f);
+	m_hint.setPosition(HINT_POSX, HINT_POSY);
 }
 
 
@@ -101,7 +102,7 @@ void SettingsState::render(float)
 	
 	window.pushGLStates();
 	
-	window.clear(sf::Color(18, 22, 28));
+	window.clear(BACKGROUND_COLOR2);
 	window.draw(m_title);
 	window.draw(m_body);
 	window.draw(m_hint);

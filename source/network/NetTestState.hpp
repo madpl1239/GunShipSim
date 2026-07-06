@@ -1,3 +1,8 @@
+/*
+ * NetTestState.hpp
+ * 
+ * 06-07-2026 by madpl
+ */
 #pragma once
 
 #include <cstdint>

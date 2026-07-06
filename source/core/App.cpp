@@ -41,7 +41,7 @@ bool App::initialize()
 	settings.attributeFlags = 0;
 	
 	// 1280, 720
-	m_window.create(sf::VideoMode(800, 600), "GunSim v 0.1 by madpl 2026",
+	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
 				 sf::Style::Titlebar | sf::Style::Close, settings);
 	
 	m_window.setKeyRepeatEnabled(false);

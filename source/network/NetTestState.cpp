@@ -1,14 +1,19 @@
-#include "network/NetTestState.hpp"
-#include "core/App.hpp"
-#include "core/Event.hpp"
-#include "core/EventType.hpp"
-#include "core/InputEvents.hpp"
-#include "network/NetCodec.hpp"
+/*
+ * NetTestState.cpp
+ * 
+ * 06-07-2026 by madpl
+ */
 #include <SFML/Window/Keyboard.hpp>
-#include <terrain/HGTLoader.hpp>
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <terrain/HGTLoader.hpp>
+#include <network/NetTestState.hpp>
+#include <core/App.hpp>
+#include <core/Event.hpp>
+#include <core/EventType.hpp>
+#include <core/InputEvents.hpp>
+#include <network/NetCodec.hpp>
 
 
 NetTestState::NetTestState(StateManager& manager, App& app):
@@ -41,6 +46,7 @@ void NetTestState::onEnter()
 	if(not m_font.loadFromFile("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load font\n";
+		
 		return;
 	}
 	
@@ -55,29 +61,19 @@ void NetTestState::onEnter()
 	if(not loader.load("res/terrain/N34E062.hgt", rawData))
 	{
 		std::cerr << "Failed to load HGT file for NetTestState\n";
+		
 		return;
 	}
 	
-	if(not m_terrain.buildFromHGT(
-		rawData.samples,
-		rawData.width,
-		rawData.height,
-		34.0f,
-		62.0f,
-		34.5f,
-		62.5f,
-		12000.0f,
-		256))
+	if(not m_terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
+									34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data for NetTestState\n";
+		
 		return;
 	}
 	
-	m_helicopter.setPosition(
-		0.0f,
-		m_terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f,
-							 0.0f);
-	
+	m_helicopter.setPosition(0.0f, m_terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f, 0.0f);
 	m_helicopter.setYawDegrees(0.0f);
 	
 	m_mode = Mode::Host;
@@ -118,6 +114,7 @@ void NetTestState::onEvent(Event& event)
 		{
 			m_app.stop();
 			event.stopPropagation();
+			
 			break;
 		}
 		
@@ -140,6 +137,7 @@ void NetTestState::onEvent(Event& event)
 					m_mode = Mode::Host;
 					updateInfoText();
 					event.stopPropagation();
+					
 					break;
 				}
 				
@@ -156,6 +154,7 @@ void NetTestState::onEvent(Event& event)
 					m_mode = Mode::Client;
 					updateInfoText();
 					event.stopPropagation();
+					
 					break;
 				}
 				
@@ -163,6 +162,7 @@ void NetTestState::onEvent(Event& event)
 				{
 					m_app.stop();
 					event.stopPropagation();
+					
 					break;
 				}
 				
@@ -184,6 +184,7 @@ void NetTestState::onEvent(Event& event)
 					}
 					
 					event.stopPropagation();
+					
 					break;
 				}
 				
@@ -194,8 +195,8 @@ void NetTestState::onEvent(Event& event)
 			break;
 		}
 		
-				default:
-					break;
+		default:
+			break;
 	}
 }
 
@@ -214,8 +215,10 @@ void NetTestState::render(float alpha)
 	auto& window = m_app.getWindow();
 	
 	window.pushGLStates();
+	
 	window.clear(sf::Color(15, 18, 24));
 	window.draw(m_infoText);
+	
 	window.popGLStates();
 }
 
@@ -250,16 +253,14 @@ void NetTestState::updateHost(float dt)
 		
 		if(m_host.sendStateSnapshot(state))
 		{
-			std::cout
-			<< "[HOST] tick=" << state.tick
-			<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
-			<< " yaw=" << state.yawDegrees
-			<< " pitch=" << state.pitchDegrees
-			<< " roll=" << state.rollDegrees
-			<< " speed=" << state.speed
-			<< " vs=" << state.verticalSpeed
-			<< " agl=" << state.altitudeAboveGround
-			<< "\n";
+			std::cout << "[HOST] tick=" << state.tick
+						<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
+						<< " yaw=" << state.yawDegrees
+						<< " pitch=" << state.pitchDegrees
+						<< " roll=" << state.rollDegrees
+						<< " speed=" << state.speed
+						<< " vs=" << state.verticalSpeed
+						<< " agl=" << state.altitudeAboveGround << "\n";
 		}
 	}
 }
@@ -280,16 +281,14 @@ void NetTestState::updateClient(float)
 		m_lastClientVerticalSpeed = state.verticalSpeed;
 		m_lastClientAGL = state.altitudeAboveGround;
 		
-		std::cout
-		<< "[CLIENT] tick=" << state.tick
-		<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
-		<< " yaw=" << state.yawDegrees
-		<< " pitch=" << state.pitchDegrees
-		<< " roll=" << state.rollDegrees
-		<< " speed=" << state.speed
-		<< " vs=" << state.verticalSpeed
-		<< " agl=" << state.altitudeAboveGround
-		<< "\n";
+		std::cout << "[CLIENT] tick=" << state.tick
+					<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
+					<< " yaw=" << state.yawDegrees
+					<< " pitch=" << state.pitchDegrees
+					<< " roll=" << state.rollDegrees
+					<< " speed=" << state.speed
+					<< " vs=" << state.verticalSpeed
+					<< " agl=" << state.altitudeAboveGround << "\n";
 	}
 }
 

@@ -5,11 +5,12 @@
  */
 #pragma once
 
-#include "core/IState.hpp"
-#include "network/NetworkConfig.hpp"
 #include <SFML/Graphics.hpp>
+#include <core/IState.hpp>
+#include <network/NetworkConfig.hpp>
 
 class App;
+
 
 class NetworkMenuState : public IState
 {
