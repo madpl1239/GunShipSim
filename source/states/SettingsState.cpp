@@ -99,10 +99,12 @@ void SettingsState::render(float)
 {
 	auto& window = m_app.getWindow();
 	
-	m_app.getWindow().pushGLStates();
+	window.pushGLStates();
+	
 	window.clear(sf::Color(18, 22, 28));
 	window.draw(m_title);
 	window.draw(m_body);
 	window.draw(m_hint);
-	m_app.getWindow().popGLStates();
+	
+	window.popGLStates();
 }

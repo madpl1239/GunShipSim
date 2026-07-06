@@ -3,18 +3,19 @@
  *
  * 05-07-2026 by madpl
  */
+#include <GL/glew.h>
+#include <iostream>
+#include <memory>
+#include <SFML/Window/Event.hpp>
+#include <SFML/System/Clock.hpp>
+#include <SFML/Window/Keyboard.hpp>
 #include <core/App.hpp>
 #include <core/EventRouter.hpp>
 #include <core/InputEvents.hpp>
 #include <core/IState.hpp>
 #include <states/MainMenuState.hpp>
 #include <states/MissionState.hpp>
-#include <SFML/System/Clock.hpp>
-#include <SFML/Window/Event.hpp>
-#include <SFML/Window/Keyboard.hpp>
-#include <GL/glew.h>
-#include <iostream>
-#include <memory>
+#include <network/NetTestState.hpp>
 
 
 App::App():
@@ -64,7 +65,8 @@ bool App::initialize()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
-	m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
+	// m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
+	m_stateManager.pushState(std::make_unique<NetTestState>(m_stateManager, *this));
 	m_stateManager.update(0.0f);
 	
 	updateStateListener();

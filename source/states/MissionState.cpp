@@ -150,8 +150,7 @@ void MissionState::onEvent(Event& event)
 		
 		case EventType::WindowResized:
 		{
-			const WindowResizedEvent& resizedEvent =
-			static_cast<const WindowResizedEvent&>(event);
+			const WindowResizedEvent& resizedEvent = static_cast<const WindowResizedEvent&>(event);
 			
 			glViewport(0, 0, static_cast<GLsizei>(resizedEvent.getWidth()),
 					   static_cast<GLsizei>(resizedEvent.getHeight()));

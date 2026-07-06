@@ -28,6 +28,7 @@ MainMenuState::MainMenuState(StateManager& manager, App& app):
 	m_enterWasDown(false),
 	m_escapeWasDown(false)
 {
+	// empty
 }
 
 
@@ -36,6 +37,7 @@ void MainMenuState::onEnter()
 	if(not m_font.loadFromFile("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load menu font\n";
+		
 		return;
 	}
 	
@@ -120,15 +122,17 @@ void MainMenuState::update(float)
 void MainMenuState::render(float)
 {
 	auto& window = m_app.getWindow();
-	window.clear(sf::Color(18, 22, 28));
 	
-	m_app.getWindow().pushGLStates();
+	window.pushGLStates();
+	
+	window.clear(sf::Color(18, 22, 28));
 	window.draw(m_title);
 	window.draw(makeText("Singleplayer", 220.0f, m_selection == Selection::Singleplayer));
 	window.draw(makeText("Settings", 290.0f, m_selection == Selection::Settings));
 	window.draw(makeText("Exit", 360.0f, m_selection == Selection::Exit));
 	window.draw(m_hint);
-	m_app.getWindow().popGLStates();
+	
+	window.popGLStates();
 }
 
 

@@ -11,14 +11,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(SFML 2.5 REQUIRED COMPONENTS
-	system window graphics)
+	system window graphics network)
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_SOURCE_DIR})
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCE})
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/source)
 target_link_libraries(${CMAKE_PROJECT_NAME}
-	sfml-system sfml-window sfml-graphics GLEW GL)
+	sfml-system sfml-window sfml-graphics sfml-network GLEW GL)
 
 if(DEBUG)
 	target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
