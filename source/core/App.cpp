@@ -15,7 +15,6 @@
 #include <core/IState.hpp>
 #include <states/MainMenuState.hpp>
 #include <states/MissionState.hpp>
-#include <network/NetTestState.hpp>
 
 
 App::App():
@@ -66,7 +65,6 @@ bool App::initialize()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
-	// m_stateManager.pushState(std::make_unique<NetTestState>(m_stateManager, *this));
 	m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
 	m_stateManager.update(0.0f);
 	

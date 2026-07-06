@@ -5,9 +5,9 @@
  */
 #pragma once
 
-#include <terrain/TerrainData.hpp>
 #include <helicopter/FlightModel.hpp>
 #include <helicopter/HelicopterInput.hpp>
+#include <terrain/TerrainData.hpp>
 
 
 class Helicopter
@@ -18,10 +18,19 @@ public:
 	void setPosition(float x, float y, float z);
 	void setYawDegrees(float yawDegrees);
 	
-	void setNetworkInputState(const HelicopterInputState& inputState);
-	void clearNetworkInputOverride();
-	
 	void update(float dt, const TerrainData& terrain);
+	void update(float dt, const TerrainData& terrain, const HelicopterInputState& inputState);
+	
+	void applyAuthoritativeState(
+		float x,
+		float y,
+		float z,
+		float yawDegrees,
+		float pitchDegrees,
+		float rollDegrees,
+		float speed,
+		float verticalSpeed,
+		float altitudeAboveGround);
 	
 	float getX() const;
 	float getY() const;
@@ -45,9 +54,12 @@ private:
 	
 	float m_altitudeAboveGround;
 	
+	float m_authoritativeYawDegrees;
+	float m_authoritativePitchDegrees;
+	float m_authoritativeRollDegrees;
+	float m_authoritativeSpeed;
+	float m_authoritativeVerticalSpeed;
+	
 	FlightModel m_flightModel;
 	HelicopterInput m_input;
-	
-	HelicopterInputState m_networkInputState;
-	bool m_hasNetworkInputOverride;
 };

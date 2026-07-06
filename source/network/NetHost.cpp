@@ -1,10 +1,19 @@
 /*
  * NetHost.cpp
- * 
+ *
  * 06-07-2026 by madpl
  */
+#include <SFML/Network/Socket.hpp>
+#include <cstring>
 #include <network/NetHost.hpp>
-#include <network/NetCodec.hpp>
+
+
+NetHost::NetHost():
+	m_socket(),
+	m_peers{}
+{
+	// no-op
+}
 
 
 bool NetHost::start(std::uint16_t port)
@@ -14,6 +23,9 @@ bool NetHost::start(std::uint16_t port)
 	
 	m_socket.setBlocking(false);
 	
+	for(auto& peer : m_peers)
+		peer = RemotePeer{};
+	
 	return true;
 }
 
@@ -21,39 +33,157 @@ bool NetHost::start(std::uint16_t port)
 void NetHost::stop()
 {
 	m_socket.unbind();
-	m_hasClient = false;
-	m_clientPort = 0;
+	
+	for(auto& peer : m_peers)
+		peer = RemotePeer{};
 }
 
 
-bool NetHost::pollInputSnapshot(InputSnapshotPacket& outPacket)
+bool NetHost::pollJoinRequest(sf::IpAddress& outAddress, std::uint16_t& outPort)
 {
-	std::uint8_t buffer[128];
+	std::uint8_t buffer[256];
 	std::size_t received = 0;
 	sf::IpAddress sender;
 	unsigned short senderPort = 0;
 	
-	auto status = m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
+	const sf::Socket::Status status =
+	m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
+	
 	if(status != sf::Socket::Done)
 		return false;
 	
-	if(not NetCodec::decode(buffer, received, outPacket))
+	if(received != sizeof(JoinRequestPacket))
 		return false;
 	
-	m_clientAddress = sender;
-	m_clientPort = senderPort;
-	m_hasClient = true;
+	JoinRequestPacket packet{};
+	std::memcpy(&packet, buffer, sizeof(JoinRequestPacket));
+	
+	if(packet.header.protocolVersion != NetGame::ProtocolVersion)
+		return false;
+	
+	if(packet.header.packetType != PacketType::JoinRequest)
+		return false;
+	
+	outAddress = sender;
+	outPort = static_cast<std::uint16_t>(senderPort);
 	
 	return true;
 }
 
 
-bool NetHost::sendStateSnapshot(const StateSnapshotPacket& packet)
+bool NetHost::sendJoinAccept(const sf::IpAddress& address, std::uint16_t port, const JoinAcceptPacket& packet)
 {
-	if(not m_hasClient)
+	return m_socket.send(&packet, sizeof(packet), address, port) == sf::Socket::Done;
+}
+
+
+bool NetHost::pollPlayerInput(PlayerInputPacket& outPacket)
+{
+	std::uint8_t buffer[256];
+	std::size_t received = 0;
+	sf::IpAddress sender;
+	unsigned short senderPort = 0;
+	
+	const sf::Socket::Status status =
+	m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
+	
+	if(status != sf::Socket::Done)
 		return false;
 	
-	auto bytes = NetCodec::encode(packet);
+	if(received != sizeof(PlayerInputPacket))
+		return false;
 	
-	return m_socket.send(bytes.data(), bytes.size(), m_clientAddress, m_clientPort) == sf::Socket::Done;
+	PlayerInputPacket packet{};
+	std::memcpy(&packet, buffer, sizeof(PlayerInputPacket));
+	
+	if(packet.header.protocolVersion != NetGame::ProtocolVersion)
+		return false;
+	
+	if(packet.header.packetType != PacketType::PlayerInput)
+		return false;
+	
+	RemotePeer* peer = findPeerByEndpoint(sender, static_cast<std::uint16_t>(senderPort));
+	if(peer == nullptr)
+		return false;
+	
+	if(packet.peerId != peer->peerId)
+		return false;
+	
+	outPacket = packet;
+	
+	return true;
+}
+
+
+bool NetHost::sendWorldStateToAll(const WorldStatePacket& packet)
+{
+	bool allSent = true;
+	
+	for(const RemotePeer& peer : m_peers)
+	{
+		if(not peer.active)
+			continue;
+		
+		if(m_socket.send(&packet, sizeof(packet), peer.address, peer.port) != sf::Socket::Done)
+			allSent = false;
+	}
+	
+	return allSent;
+}
+
+
+bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port, std::uint32_t peerId, std::int32_t slotIndex)
+{
+	for(auto& peer : m_peers)
+	{
+		if(peer.active)
+			continue;
+		
+		peer.active = true;
+		peer.peerId = peerId;
+		peer.slotIndex = slotIndex;
+		peer.address = address;
+		peer.port = port;
+		return true;
+	}
+	
+	return false;
+}
+
+
+void NetHost::unregisterPeer(std::uint32_t peerId)
+{
+	RemotePeer* peer = findPeerByPeerId(peerId);
+	if(peer != nullptr)
+		*peer = RemotePeer{};
+}
+
+
+const std::array<NetHost::RemotePeer, NetGame::MaxPlayers>& NetHost::getPeers() const
+{
+	return m_peers;
+}
+
+
+NetHost::RemotePeer* NetHost::findPeerByEndpoint(const sf::IpAddress& address, std::uint16_t port)
+{
+	for(auto& peer : m_peers)
+	{
+		if(peer.active && peer.address == address && peer.port == port)
+			return &peer;
+	}
+	
+	return nullptr;
+}
+
+
+NetHost::RemotePeer* NetHost::findPeerByPeerId(std::uint32_t peerId)
+{
+	for(auto& peer : m_peers)
+	{
+		if(peer.active && peer.peerId == peerId)
+			return &peer;
+	}
+	
+	return nullptr;
 }

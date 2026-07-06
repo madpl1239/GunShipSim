@@ -8,6 +8,9 @@
 #include <SFML/Graphics.hpp>
 
 
+const float WIDTH = 1280;
+const float HEIGHT = 720;
+
 const sf::Color HINT_COLOR1 = {0, 166, 147};
 const sf::Color HINT_COLOR2 = {100, 100, 100};
 

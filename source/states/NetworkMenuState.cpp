@@ -184,7 +184,7 @@ void NetworkMenuState::rebuildLayout()
 {
 	for(int i = 0; i < 7; ++i)
 	{
-		m_lines[i].setPosition(60.0f, 90.0f + float(i) * 28.0f);
+		m_lines[i].setPosition(60.0f, 100.0f + float(i) * 28.0f);
 		m_lines[i].setFillColor(i == static_cast<int>(m_selection) ? HINT_COLOR1 : HINT_COLOR2);
 	}
 }

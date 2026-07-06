@@ -12,12 +12,13 @@ Helicopter::Helicopter():
 	m_y(200.0f),
 	m_z(0.0f),
 	m_altitudeAboveGround(0.0f),
-	m_flightModel(),
-	m_input(),
-	m_hasNetworkInputOverride(false),
-	m_networkInputState{0.0f, 0.0f, 0.0f, false}
+	m_authoritativeYawDegrees(0.0f),
+	m_authoritativePitchDegrees(0.0f),
+	m_authoritativeRollDegrees(0.0f),
+	m_authoritativeSpeed(0.0f),
+	m_authoritativeVerticalSpeed(0.0f)
 {
-	// empty
+	// no-op
 }
 
 
@@ -32,34 +33,54 @@ void Helicopter::setPosition(float x, float y, float z)
 void Helicopter::setYawDegrees(float yawDegrees)
 {
 	m_flightModel.setYawDegrees(yawDegrees);
-}
-
-
-void Helicopter::setNetworkInputState(const HelicopterInputState& inputState)
-{
-	m_networkInputState = inputState;
-	m_hasNetworkInputOverride = true;
-}
-
-
-void Helicopter::clearNetworkInputOverride()
-{
-	m_hasNetworkInputOverride = false;
+	m_authoritativeYawDegrees = yawDegrees;
 }
 
 
 void Helicopter::update(float dt, const TerrainData& terrain)
 {
-	HelicopterInputState inputState{};
-	
-	if(m_hasNetworkInputOverride)
-		inputState = m_networkInputState;
-	else
-		inputState = m_input.readInput();
-	
+	const HelicopterInputState inputState = m_input.readInput();
+	update(dt, terrain, inputState);
+}
+
+
+void Helicopter::update(float dt, const TerrainData& terrain, const HelicopterInputState& inputState)
+{
 	m_flightModel.update(dt, inputState);
 	updateMovement(dt);
 	updateTerrainRelation(terrain);
+	
+	m_authoritativeYawDegrees = m_flightModel.getYawDegrees();
+	m_authoritativePitchDegrees = m_flightModel.getPitchDegrees();
+	m_authoritativeRollDegrees = m_flightModel.getRollDegrees();
+	m_authoritativeSpeed = m_flightModel.getSpeed();
+	m_authoritativeVerticalSpeed = m_flightModel.getVerticalSpeed();
+}
+
+
+void Helicopter::applyAuthoritativeState(
+	float x,
+	float y,
+	float z,
+	float yawDegrees,
+	float pitchDegrees,
+	float rollDegrees,
+	float speed,
+	float verticalSpeed,
+	float altitudeAboveGround)
+{
+	m_x = x;
+	m_y = y;
+	m_z = z;
+	
+	m_authoritativeYawDegrees = yawDegrees;
+	m_authoritativePitchDegrees = pitchDegrees;
+	m_authoritativeRollDegrees = rollDegrees;
+	m_authoritativeSpeed = speed;
+	m_authoritativeVerticalSpeed = verticalSpeed;
+	m_altitudeAboveGround = altitudeAboveGround;
+	
+	m_flightModel.setYawDegrees(yawDegrees);
 }
 
 
@@ -83,31 +104,31 @@ float Helicopter::getZ() const
 
 float Helicopter::getYawDegrees() const
 {
-	return m_flightModel.getYawDegrees();
+	return m_authoritativeYawDegrees;
 }
 
 
 float Helicopter::getPitchDegrees() const
 {
-	return m_flightModel.getPitchDegrees();
+	return m_authoritativePitchDegrees;
 }
 
 
 float Helicopter::getRollDegrees() const
 {
-	return m_flightModel.getRollDegrees();
+	return m_authoritativeRollDegrees;
 }
 
 
 float Helicopter::getSpeed() const
 {
-	return m_flightModel.getSpeed();
+	return m_authoritativeSpeed;
 }
 
 
 float Helicopter::getVerticalSpeed() const
 {
-	return m_flightModel.getVerticalSpeed();
+	return m_authoritativeVerticalSpeed;
 }
 
 
@@ -133,7 +154,7 @@ void Helicopter::updateMovement(float dt)
 
 void Helicopter::updateTerrainRelation(const TerrainData& terrain)
 {
-	float terrainHeight = terrain.getHeightAtWorldPosition(m_x, m_z);
+	const float terrainHeight = terrain.getHeightAtWorldPosition(m_x, m_z);
 	
 	if(m_y < terrainHeight + 5.0f)
 		m_y = terrainHeight + 5.0f;
