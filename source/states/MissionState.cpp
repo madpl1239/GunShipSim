@@ -48,51 +48,68 @@ namespace
 		
 		return normalizeAngleDegrees(fromDegrees + delta * alpha);
 	}
+	
+	float approach(float current, float target, float factor)
+	{
+		return current + (target - current) * factor;
+	}
+	
+	float approachAngleDegrees(float current, float target, float factor)
+	{
+		current = normalizeAngleDegrees(current);
+		target = normalizeAngleDegrees(target);
+		
+		float delta = target - current;
+		
+		if(delta > 180.0f)
+			delta -= 360.0f;
+		else if(delta < -180.0f)
+			delta += 360.0f;
+		
+		return normalizeAngleDegrees(current + delta * factor);
+	}
 }
 
 
 MissionState::MissionState(StateManager& manager, App& app):
-	IState(manager),
-	m_app(app),
-	m_hud(),
-	m_terrain(),
-	m_renderer(),
-	m_camera(),
-	m_inputSnapshot{},
-	m_networkConfig(app.getNetworkConfig()),
-	m_slots{},
-	m_isHost(false),
-	m_sessionReady(false),
-	m_localPeerId(0),
-	m_localSlotIndex(NetGame::InvalidSlotIndex),
-	m_serverTick(0),
-	m_nextPeerId(1),
-	m_host(),
-	m_client(),
-	m_latestWorldState{},
-	m_hasLatestWorldState(false),
-	m_previousAltitude(0.0f),
-	m_verticalSpeed(0.0f),
-	m_previousRenderState{},
-	m_currentRenderState{}
+IState(manager),
+m_app(app),
+m_hud(),
+m_terrain(),
+m_renderer(),
+m_camera(),
+m_inputSnapshot{},
+m_networkConfig(app.getNetworkConfig()),
+m_slots{},
+m_isHost(false),
+m_sessionReady(false),
+m_localPeerId(0),
+m_localSlotIndex(NetGame::InvalidSlotIndex),
+m_serverTick(0),
+m_nextPeerId(1),
+m_host(),
+m_client(),
+m_latestWorldState{},
+m_hasLatestWorldState(false),
+m_previousAltitude(0.0f),
+m_verticalSpeed(0.0f),
+m_previousRenderState{},
+m_currentRenderState{}
 {
 	for(auto& slot : m_slots)
 		resetInputState(slot.inputState);
 }
-
 
 MissionState::~MissionState()
 {
 	m_renderer.destroy();
 }
 
-
 void MissionState::onEnter()
 {
 	if(not m_hud.initialize("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load HUD font\n";
-		
 		return;
 	}
 	
@@ -102,7 +119,6 @@ void MissionState::onEnter()
 	if(not loader.load("res/terrain/N34E062.hgt", rawData))
 	{
 		std::cerr << "Failed to load HGT file\n";
-		
 		return;
 	}
 	
@@ -110,14 +126,12 @@ void MissionState::onEnter()
 		34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data\n";
-		
 		return;
 	}
 	
 	if(not m_renderer.create(m_terrain))
 	{
 		std::cerr << "Failed to create terrain renderer\n";
-		
 		return;
 	}
 	
@@ -146,14 +160,12 @@ void MissionState::onEnter()
 	updateHud();
 }
 
-
 void MissionState::onExit()
 {
 	m_client.disconnect();
 	m_host.stop();
 	m_renderer.destroy();
 }
-
 
 void MissionState::onEvent(Event& event)
 {
@@ -162,7 +174,6 @@ void MissionState::onEvent(Event& event)
 		case EventType::QuitRequested:
 			m_app.stop();
 			event.stopPropagation();
-			
 			break;
 			
 		case EventType::WindowResized:
@@ -179,7 +190,6 @@ void MissionState::onEvent(Event& event)
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
 			event.stopPropagation();
-			
 			break;
 		}
 		
@@ -192,7 +202,6 @@ void MissionState::onEvent(Event& event)
 				m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
 				event.stopPropagation();
 			}
-			
 			break;
 		}
 		
@@ -200,7 +209,6 @@ void MissionState::onEvent(Event& event)
 			break;
 	}
 }
-
 
 void MissionState::update(float dt)
 {
@@ -223,15 +231,23 @@ void MissionState::update(float dt)
 			slot.helicopter.update(dt, m_terrain, slot.inputState);
 		}
 	}
-	
 	else if(m_isHost)
 	{
 		processHostNetworking();
 		updateHostSimulation(dt);
 	}
-	
 	else
 	{
+		if(m_sessionReady &&
+			m_localSlotIndex >= 0 &&
+			m_localSlotIndex < static_cast<std::int32_t>(m_slots.size()))
+		{
+			HelicopterSlot& localSlot = m_slots[static_cast<std::size_t>(m_localSlotIndex)];
+			applyLocalInputToState(localSlot.inputState);
+			localSlot.lastProcessedTick = m_inputSnapshot.tick;
+			localSlot.helicopter.update(dt, m_terrain, localSlot.inputState);
+		}
+		
 		processClientNetworking();
 		updateClientFromWorldState();
 	}
@@ -242,14 +258,14 @@ void MissionState::update(float dt)
 		m_verticalSpeed = (observed->getY() - m_previousAltitude) / dt;
 		m_previousAltitude = observed->getY();
 	}
-	
 	else
+	{
 		m_verticalSpeed = 0.0f;
+	}
 	
 	captureCurrentRenderState();
 	updateHud();
 }
-
 
 void MissionState::render(float alpha)
 {
@@ -262,7 +278,8 @@ void MissionState::render(float alpha)
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	m_renderer.render(m_camera.getViewProjectionMatrix(),
+	m_renderer.render(
+		m_camera.getViewProjectionMatrix(),
 					  glm::vec3(state.camX, state.camY, state.camZ));
 	
 	m_app.getWindow().pushGLStates();
@@ -270,12 +287,10 @@ void MissionState::render(float alpha)
 	m_app.getWindow().popGLStates();
 }
 
-
 void MissionState::setInputSnapshot(const InputSnapshot& inputSnapshot)
 {
 	m_inputSnapshot = inputSnapshot;
 }
-
 
 void MissionState::initializeSlots()
 {
@@ -288,7 +303,6 @@ void MissionState::initializeSlots()
 		placeSlotHelicopter(i);
 	}
 }
-
 
 void MissionState::initializeLocalOwnership()
 {
@@ -303,7 +317,6 @@ void MissionState::initializeLocalOwnership()
 		if(not m_host.start(m_networkConfig.port))
 		{
 			std::cerr << "Failed to start host on port " << m_networkConfig.port << "\n";
-			
 			return;
 		}
 		
@@ -316,7 +329,6 @@ void MissionState::initializeLocalOwnership()
 		
 		m_sessionReady = true;
 	}
-	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		const sf::IpAddress hostAddress(m_networkConfig.ipAddress);
@@ -326,7 +338,6 @@ void MissionState::initializeLocalOwnership()
 			std::cerr << "Failed to connect to host "
 			<< m_networkConfig.ipAddress
 			<< ":" << m_networkConfig.port << "\n";
-			
 			return;
 		}
 		
@@ -339,14 +350,12 @@ void MissionState::initializeLocalOwnership()
 			m_localSlotIndex = joinAccept.assignedSlotIndex;
 			m_sessionReady = (m_localSlotIndex != NetGame::InvalidSlotIndex);
 		}
-		
 		else
 		{
 			m_localPeerId = 0;
 			m_localSlotIndex = NetGame::InvalidSlotIndex;
 		}
 	}
-	
 	else
 	{
 		m_localPeerId = NetGame::HostPeerId;
@@ -359,7 +368,6 @@ void MissionState::initializeLocalOwnership()
 		m_sessionReady = true;
 	}
 }
-
 
 void MissionState::placeSlotHelicopter(std::size_t slotIndex)
 {
@@ -375,13 +383,11 @@ void MissionState::placeSlotHelicopter(std::size_t slotIndex)
 	m_slots[slotIndex].helicopter.setYawDegrees(0.0f);
 }
 
-
 void MissionState::processHostNetworking()
 {
 	handlePendingJoinRequests();
 	handleIncomingPlayerInputs();
 }
-
 
 void MissionState::processClientNetworking()
 {
@@ -406,14 +412,12 @@ void MissionState::processClientNetworking()
 	m_client.sendPlayerInput(inputPacket);
 	
 	WorldStatePacket worldState{};
-	
 	if(m_client.pollWorldState(worldState))
 	{
 		m_latestWorldState = worldState;
 		m_hasLatestWorldState = true;
 	}
 }
-
 
 void MissionState::handlePendingJoinRequests()
 {
@@ -449,7 +453,6 @@ void MissionState::handlePendingJoinRequests()
 	}
 }
 
-
 void MissionState::handleIncomingPlayerInputs()
 {
 	for(;;)
@@ -472,12 +475,10 @@ void MissionState::handleIncomingPlayerInputs()
 			slot.inputState.yawInput = packet.yawPedal;
 			slot.inputState.verticalInput = packet.collective;
 			slot.inputState.brake = (packet.brake != 0) || (packet.cyclicPitch < 0.0f);
-			
 			break;
 		}
 	}
 }
-
 
 bool MissionState::findFreeSlotIndex(std::int32_t& outSlotIndex) const
 {
@@ -491,16 +492,13 @@ bool MissionState::findFreeSlotIndex(std::int32_t& outSlotIndex) const
 	}
 	
 	outSlotIndex = NetGame::InvalidSlotIndex;
-	
 	return false;
 }
-
 
 std::uint32_t MissionState::generatePeerId()
 {
 	return m_nextPeerId++;
 }
-
 
 void MissionState::updateHostSimulation(float dt)
 {
@@ -531,7 +529,6 @@ void MissionState::updateHostSimulation(float dt)
 	++m_serverTick;
 }
 
-
 void MissionState::updateClientFromWorldState()
 {
 	if(not m_hasLatestWorldState)
@@ -539,7 +536,6 @@ void MissionState::updateClientFromWorldState()
 	
 	applyWorldStatePacket(m_latestWorldState);
 }
-
 
 void MissionState::buildWorldStatePacket(WorldStatePacket& outPacket) const
 {
@@ -558,7 +554,6 @@ void MissionState::buildWorldStatePacket(WorldStatePacket& outPacket) const
 	}
 }
 
-
 void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 {
 	m_serverTick = packet.serverTick;
@@ -572,7 +567,6 @@ void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 	for(const HelicopterSlotStatePacket& slotPacket : packet.slots)
 		applyPacketToSlot(slotPacket);
 }
-
 
 void MissionState::writeSlotStateToPacket(std::size_t slotIndex, HelicopterSlotStatePacket& outPacket) const
 {
@@ -599,7 +593,6 @@ void MissionState::writeSlotStateToPacket(std::size_t slotIndex, HelicopterSlotS
 	outPacket.altitudeAboveGroundMeters = slot.helicopter.getAltitudeAboveGround();
 }
 
-
 void MissionState::applyPacketToSlot(const HelicopterSlotStatePacket& packet)
 {
 	const std::size_t slotIndex = static_cast<std::size_t>(packet.slotIndex);
@@ -615,22 +608,60 @@ void MissionState::applyPacketToSlot(const HelicopterSlotStatePacket& packet)
 	{
 		resetInputState(slot.inputState);
 		placeSlotHelicopter(slotIndex);
-		
 		return;
 	}
 	
-	slot.helicopter.applyAuthoritativeState(
-		packet.x,
-		packet.y,
-		packet.z,
-		packet.yawDegrees,
-		packet.pitchDegrees,
-		packet.rollDegrees,
-		packet.speedMetersPerSecond,
-		packet.verticalSpeedMetersPerSecond,
-		packet.altitudeAboveGroundMeters);
+	const bool isLocalClientSlot =
+	(m_networkConfig.mode == NetworkMode::Client) &&
+	(m_localSlotIndex != NetGame::InvalidSlotIndex) &&
+	(static_cast<std::int32_t>(slotIndex) == m_localSlotIndex);
+	
+	if(isLocalClientSlot)
+	{
+		const float positionBlend = 0.12f;
+		const float altitudeBlend = 0.18f;
+		const float angleBlend = 0.15f;
+		
+		const float correctedX = approach(slot.helicopter.getX(), packet.x, positionBlend);
+		const float correctedY = approach(slot.helicopter.getY(), packet.y, altitudeBlend);
+		const float correctedZ = approach(slot.helicopter.getZ(), packet.z, positionBlend);
+		
+		const float correctedYaw = approachAngleDegrees(slot.helicopter.getYawDegrees(), packet.yawDegrees, angleBlend);
+		const float correctedPitch = approachAngleDegrees(slot.helicopter.getPitchDegrees(), packet.pitchDegrees, angleBlend);
+		const float correctedRoll = approachAngleDegrees(slot.helicopter.getRollDegrees(), packet.rollDegrees, angleBlend);
+		
+		const float correctedSpeed = approach(slot.helicopter.getSpeed(), packet.speedMetersPerSecond, 0.20f);
+		const float correctedVerticalSpeed = approach(slot.helicopter.getVerticalSpeed(), packet.verticalSpeedMetersPerSecond, 0.20f);
+		const float correctedAltitudeAboveGround = approach(
+			slot.helicopter.getAltitudeAboveGround(),
+															packet.altitudeAboveGroundMeters,
+													  0.20f);
+		
+		slot.helicopter.applyAuthoritativeState(
+			correctedX,
+			correctedY,
+			correctedZ,
+			correctedYaw,
+			correctedPitch,
+			correctedRoll,
+			correctedSpeed,
+			correctedVerticalSpeed,
+			correctedAltitudeAboveGround);
+	}
+	else
+	{
+		slot.helicopter.applyAuthoritativeState(
+			packet.x,
+			packet.y,
+			packet.z,
+			packet.yawDegrees,
+			packet.pitchDegrees,
+			packet.rollDegrees,
+			packet.speedMetersPerSecond,
+			packet.verticalSpeedMetersPerSecond,
+			packet.altitudeAboveGroundMeters);
+	}
 }
-
 
 void MissionState::updateHud()
 {
@@ -644,7 +675,6 @@ void MissionState::updateHud()
 	m_hud.setSpeedMetersPerSecond(observed->getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
 }
-
 
 void MissionState::captureCurrentRenderState()
 {
@@ -690,7 +720,6 @@ void MissionState::captureCurrentRenderState()
 	m_currentRenderState.targetZ = m_currentRenderState.camZ + forwardZ * lookDistance;
 }
 
-
 MissionState::RenderState MissionState::interpolateRenderState(float alpha) const
 {
 	RenderState state{};
@@ -735,7 +764,6 @@ MissionState::RenderState MissionState::interpolateRenderState(float alpha) cons
 	
 	return state;
 }
-
 
 void MissionState::resetInputState(HelicopterInputState& inputState)
 {
