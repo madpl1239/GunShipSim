@@ -7,13 +7,18 @@
 
 #include <core/IState.hpp>
 #include <core/InputSnapshot.hpp>
-#include <camera/Camera.hpp>
-#include <helicopter/Helicopter.hpp>
-#include <helicopter/HelicopterInput.hpp>
-#include <hud/HUD.hpp>
-#include <terrain/HGTLoader.hpp>
-#include <terrain/TerrainData.hpp>
-#include <terrain/TerrainRenderer.hpp>
+#include "hud/HUD.hpp"
+#include "terrain/TerrainData.hpp"
+#include "terrain/TerrainRenderer.hpp"
+#include "terrain/HGTLoader.hpp"
+#include "helicopter/Helicopter.hpp"
+#include "camera/Camera.hpp"
+#include "network/NetworkConfig.hpp"
+#include "network/NetHost.hpp"
+#include "network/NetClient.hpp"
+#include "network/NetPacket.hpp"
+#include <SFML/OpenGL.hpp>
+#include <glm/vec3.hpp>
 
 class App;
 
@@ -55,8 +60,15 @@ private:
 	void updateHud();
 	void captureCurrentRenderState();
 	RenderState interpolateRenderState(float alpha) const;
+	
 	void resetInputState();
-	void applyInputSnapshot();
+	void applyInputSnapshotToInputState();
+	void applyInputStateToHelicopter();
+	void updateLocal(float dt);
+	void updateHost(float dt);
+	void updateClient(float dt);
+	void buildStateSnapshotPacket(StateSnapshotPacket& packet) const;
+	void applyStateSnapshotPacket(const StateSnapshotPacket& packet);
 	
 	App& m_app;
 	
@@ -65,8 +77,13 @@ private:
 	TerrainRenderer m_renderer;
 	Helicopter m_helicopter;
 	Camera m_camera;
+	
 	HelicopterInputState m_inputState;
 	InputSnapshot m_inputSnapshot;
+	NetworkConfig m_networkConfig;
+	
+	NetHost m_netHost;
+	NetClient m_netClient;
 	
 	float m_previousAltitude;
 	float m_verticalSpeed;

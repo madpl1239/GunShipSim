@@ -11,7 +11,11 @@ Helicopter::Helicopter():
 	m_x(0.0f),
 	m_y(200.0f),
 	m_z(0.0f),
-	m_altitudeAboveGround(0.0f)
+	m_altitudeAboveGround(0.0f),
+	m_flightModel(),
+	m_input(),
+	m_hasNetworkInputOverride(false),
+	m_networkInputState{0.0f, 0.0f, 0.0f, false}
 {
 	// empty
 }
@@ -31,9 +35,27 @@ void Helicopter::setYawDegrees(float yawDegrees)
 }
 
 
+void Helicopter::setNetworkInputState(const HelicopterInputState& inputState)
+{
+	m_networkInputState = inputState;
+	m_hasNetworkInputOverride = true;
+}
+
+
+void Helicopter::clearNetworkInputOverride()
+{
+	m_hasNetworkInputOverride = false;
+}
+
+
 void Helicopter::update(float dt, const TerrainData& terrain)
 {
-	HelicopterInputState inputState = m_input.readInput();
+	HelicopterInputState inputState{};
+	
+	if(m_hasNetworkInputOverride)
+		inputState = m_networkInputState;
+	else
+		inputState = m_input.readInput();
 	
 	m_flightModel.update(dt, inputState);
 	updateMovement(dt);

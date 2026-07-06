@@ -10,6 +10,7 @@
 #include <core/EventRouter.hpp>
 #include <core/InputSnapshot.hpp>
 #include <core/StateManager.hpp>
+#include <network/NetworkConfig.hpp>
 
 
 class App
@@ -20,6 +21,10 @@ public:
 	bool initialize();
 	void run();
 	void stop();
+	
+	NetworkConfig& getNetworkConfig();
+	const NetworkConfig& getNetworkConfig() const;
+	void setNetworkConfig(const NetworkConfig& config);
 	
 	sf::RenderWindow& getWindow()
 	{
@@ -42,6 +47,8 @@ private:
 	sf::RenderWindow m_window;
 	StateManager m_stateManager;
 	EventRouter m_eventRouter;
+	NetworkConfig m_networkConfig;
+	
 	bool m_running;
 	IState* m_registeredStateListener;
 	std::uint64_t m_tickCounter;

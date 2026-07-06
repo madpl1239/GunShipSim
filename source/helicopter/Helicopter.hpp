@@ -18,6 +18,9 @@ public:
 	void setPosition(float x, float y, float z);
 	void setYawDegrees(float yawDegrees);
 	
+	void setNetworkInputState(const HelicopterInputState& inputState);
+	void clearNetworkInputOverride();
+	
 	void update(float dt, const TerrainData& terrain);
 	
 	float getX() const;
@@ -44,4 +47,7 @@ private:
 	
 	FlightModel m_flightModel;
 	HelicopterInput m_input;
+	
+	HelicopterInputState m_networkInputState;
+	bool m_hasNetworkInputOverride;
 };

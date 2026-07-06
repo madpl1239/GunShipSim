@@ -40,7 +40,8 @@ bool App::initialize()
 	settings.minorVersion = 3;
 	settings.attributeFlags = 0;
 	
-	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
+	// 1280, 720
+	m_window.create(sf::VideoMode(800, 600), "GunSim v 0.1 by madpl 2026",
 				 sf::Style::Titlebar | sf::Style::Close, settings);
 	
 	m_window.setKeyRepeatEnabled(false);
@@ -65,8 +66,8 @@ bool App::initialize()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
-	// m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
-	m_stateManager.pushState(std::make_unique<NetTestState>(m_stateManager, *this));
+	// m_stateManager.pushState(std::make_unique<NetTestState>(m_stateManager, *this));
+	m_stateManager.pushState(std::make_unique<MainMenuState>(m_stateManager, *this));
 	m_stateManager.update(0.0f);
 	
 	updateStateListener();
@@ -228,4 +229,22 @@ void App::updateStateListener()
 	
 	if(m_registeredStateListener != nullptr)
 		m_eventRouter.addListener(m_registeredStateListener);
+}
+
+
+NetworkConfig& App::getNetworkConfig()
+{
+	return m_networkConfig;
+}
+
+
+const NetworkConfig& App::getNetworkConfig() const
+{
+	return m_networkConfig;
+}
+
+
+void App::setNetworkConfig(const NetworkConfig& config)
+{
+	m_networkConfig = config;
 }

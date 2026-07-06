@@ -3,15 +3,17 @@
  *
  * 05-07-2026 by madpl
  */
+#include "states/MissionState.hpp"
+#include "core/App.hpp"
+#include "core/Event.hpp"
+#include "core/EventType.hpp"
+#include "core/InputEvents.hpp"
+#include "states/MainMenuState.hpp"
+#include <SFML/Window/Keyboard.hpp>
 #include <GL/glew.h>
-#include <iostream>
 #include <cmath>
-#include <states/MissionState.hpp>
-#include <core/App.hpp>
-#include <core/Event.hpp>
-#include <core/EventType.hpp>
-#include <core/InputEvents.hpp>
-#include <states/MainMenuState.hpp>
+#include <iostream>
+#include <memory>
 
 
 namespace
@@ -41,7 +43,6 @@ namespace
 		
 		if(delta > 180.0f)
 			delta -= 360.0f;
-		
 		else if(delta < -180.0f)
 			delta += 360.0f;
 		
@@ -51,19 +52,22 @@ namespace
 
 
 MissionState::MissionState(StateManager& manager, App& app):
-	IState(manager),
-	m_app(app),
-	m_hud(),
-	m_terrain(),
-	m_renderer(),
-	m_helicopter(),
-	m_camera(),
-	m_inputState{},
-	m_inputSnapshot{},
-	m_previousAltitude(0.0f),
-	m_verticalSpeed(0.0f),
-	m_previousRenderState{},
-	m_currentRenderState{}
+IState(manager),
+m_app(app),
+m_hud(),
+m_terrain(),
+m_renderer(),
+m_helicopter(),
+m_camera(),
+m_inputState{},
+m_inputSnapshot{},
+m_networkConfig(app.getNetworkConfig()),
+m_netHost(),
+m_netClient(),
+m_previousAltitude(0.0f),
+m_verticalSpeed(0.0f),
+m_previousRenderState{},
+m_currentRenderState{}
 {
 	resetInputState();
 }
@@ -80,7 +84,6 @@ void MissionState::onEnter()
 	if(not m_hud.initialize("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load HUD font\n";
-		
 		return;
 	}
 	
@@ -90,26 +93,26 @@ void MissionState::onEnter()
 	if(not loader.load("res/terrain/N34E062.hgt", rawData))
 	{
 		std::cerr << "Failed to load HGT file\n";
-		
 		return;
 	}
 	
 	if(not m_terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
-									34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
+		34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data\n";
-		
 		return;
 	}
 	
 	if(not m_renderer.create(m_terrain))
 	{
 		std::cerr << "Failed to create terrain renderer\n";
-		
 		return;
 	}
 	
-	m_helicopter.setPosition(0.0f, m_terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f, 0.0f);
+	m_helicopter.setPosition(
+		0.0f,
+		m_terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f,
+							 0.0f);
 	m_helicopter.setYawDegrees(0.0f);
 	
 	m_camera.setPerspective(75.0f, 1280.0f / 720.0f, 0.3f, 100000.0f);
@@ -126,12 +129,31 @@ void MissionState::onEnter()
 	glClearDepth(1.0f);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
+	if(m_networkConfig.mode == NetworkMode::Host)
+	{
+		if(m_netHost.start(m_networkConfig.port))
+			std::cout << "[MISSION HOST] started on port " << m_networkConfig.port << "\n";
+		else
+			std::cout << "[MISSION HOST] failed to start on port " << m_networkConfig.port << "\n";
+	}
+	else if(m_networkConfig.mode == NetworkMode::Client)
+	{
+		if(m_netClient.connectTo(sf::IpAddress(m_networkConfig.ipAddress), m_networkConfig.port))
+			std::cout << "[MISSION CLIENT] connected to "
+			<< m_networkConfig.ipAddress << ":" << m_networkConfig.port << "\n";
+		else
+			std::cout << "[MISSION CLIENT] failed to connect to "
+			<< m_networkConfig.ipAddress << ":" << m_networkConfig.port << "\n";
+	}
+	
 	updateHud();
 }
 
 
 void MissionState::onExit()
 {
+	m_netHost.stop();
+	m_netClient.disconnect();
 	m_renderer.destroy();
 }
 
@@ -144,23 +166,24 @@ void MissionState::onEvent(Event& event)
 		{
 			m_app.stop();
 			event.stopPropagation();
-			
 			break;
 		}
 		
 		case EventType::WindowResized:
 		{
-			const WindowResizedEvent& resizedEvent = static_cast<const WindowResizedEvent&>(event);
+			const WindowResizedEvent& resizedEvent =
+			static_cast<const WindowResizedEvent&>(event);
 			
-			glViewport(0, 0, static_cast<GLsizei>(resizedEvent.getWidth()),
+			glViewport(0, 0,
+					   static_cast<GLsizei>(resizedEvent.getWidth()),
 					   static_cast<GLsizei>(resizedEvent.getHeight()));
 			
-			float aspect = static_cast<float>(resizedEvent.getWidth()) /
-							static_cast<float>(resizedEvent.getHeight());
+			float aspect =
+			static_cast<float>(resizedEvent.getWidth()) /
+			static_cast<float>(resizedEvent.getHeight());
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
 			event.stopPropagation();
-			
 			break;
 		}
 		
@@ -170,7 +193,6 @@ void MissionState::onEvent(Event& event)
 			
 			if(keyEvent.getKey() == sf::Keyboard::Escape)
 			{
-				// tu później pause menu albo powrót do main menu
 				m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
 				event.stopPropagation();
 			}
@@ -188,9 +210,20 @@ void MissionState::update(float dt)
 {
 	m_previousRenderState = m_currentRenderState;
 	
-	applyInputSnapshot();
-	
-	m_helicopter.update(dt, m_terrain);
+	switch(m_networkConfig.mode)
+	{
+		case NetworkMode::Local:
+			updateLocal(dt);
+			break;
+			
+		case NetworkMode::Host:
+			updateHost(dt);
+			break;
+			
+		case NetworkMode::Client:
+			updateClient(dt);
+			break;
+	}
 	
 	if(dt > 0.0001f)
 		m_verticalSpeed = (m_helicopter.getY() - m_previousAltitude) / dt;
@@ -213,7 +246,8 @@ void MissionState::render(float alpha)
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	m_renderer.render(m_camera.getViewProjectionMatrix(),
+	m_renderer.render(
+		m_camera.getViewProjectionMatrix(),
 					  glm::vec3(state.camX, state.camY, state.camZ));
 	
 	m_app.getWindow().pushGLStates();
@@ -283,41 +317,65 @@ MissionState::RenderState MissionState::interpolateRenderState(float alpha) cons
 {
 	RenderState state{};
 	
-	state.helicopterX = lerp(m_previousRenderState.helicopterX,
-							 m_currentRenderState.helicopterX, alpha);
-	
-	state.helicopterY = lerp(m_previousRenderState.helicopterY,
-							 m_currentRenderState.helicopterY, alpha);
-	
-	state.helicopterZ = lerp(m_previousRenderState.helicopterZ,
-							 m_currentRenderState.helicopterZ, alpha);
-	
-	state.helicopterYawDegrees = lerpAngleDegrees(m_previousRenderState.helicopterYawDegrees,
-												  m_currentRenderState.helicopterYawDegrees, alpha);
-	
-	state.helicopterPitchDegrees = lerpAngleDegrees(m_previousRenderState.helicopterPitchDegrees,
-													m_currentRenderState.helicopterPitchDegrees, alpha);
-	
-	state.helicopterRollDegrees = lerpAngleDegrees(m_previousRenderState.helicopterRollDegrees,
-												   m_currentRenderState.helicopterRollDegrees, alpha);
-	
-	state.camX = lerp(m_previousRenderState.camX, m_currentRenderState.camX, alpha);
-	
-	state.camY = lerp(m_previousRenderState.camY,
-					  m_currentRenderState.camY,
+	state.helicopterX = lerp(
+		m_previousRenderState.helicopterX,
+		m_currentRenderState.helicopterX,
 		alpha);
 	
-	state.camZ = lerp(m_previousRenderState.camZ,
-					  m_currentRenderState.camZ, alpha);
+	state.helicopterY = lerp(
+		m_previousRenderState.helicopterY,
+		m_currentRenderState.helicopterY,
+		alpha);
 	
-	state.targetX = lerp(m_previousRenderState.targetX,
-						 m_currentRenderState.targetX, alpha);
+	state.helicopterZ = lerp(
+		m_previousRenderState.helicopterZ,
+		m_currentRenderState.helicopterZ,
+		alpha);
 	
-	state.targetY = lerp(m_previousRenderState.targetY,
-						 m_currentRenderState.targetY, alpha);
+	state.helicopterYawDegrees = lerpAngleDegrees(
+		m_previousRenderState.helicopterYawDegrees,
+		m_currentRenderState.helicopterYawDegrees,
+		alpha);
 	
-	state.targetZ = lerp(m_previousRenderState.targetZ,
-						 m_currentRenderState.targetZ, alpha);
+	state.helicopterPitchDegrees = lerpAngleDegrees(
+		m_previousRenderState.helicopterPitchDegrees,
+		m_currentRenderState.helicopterPitchDegrees,
+		alpha);
+	
+	state.helicopterRollDegrees = lerpAngleDegrees(
+		m_previousRenderState.helicopterRollDegrees,
+		m_currentRenderState.helicopterRollDegrees,
+		alpha);
+	
+	state.camX = lerp(
+		m_previousRenderState.camX,
+		m_currentRenderState.camX,
+		alpha);
+	
+	state.camY = lerp(
+		m_previousRenderState.camY,
+		m_currentRenderState.camY,
+		alpha);
+	
+	state.camZ = lerp(
+		m_previousRenderState.camZ,
+		m_currentRenderState.camZ,
+		alpha);
+	
+	state.targetX = lerp(
+		m_previousRenderState.targetX,
+		m_currentRenderState.targetX,
+		alpha);
+	
+	state.targetY = lerp(
+		m_previousRenderState.targetY,
+		m_currentRenderState.targetY,
+		alpha);
+	
+	state.targetZ = lerp(
+		m_previousRenderState.targetZ,
+		m_currentRenderState.targetZ,
+		alpha);
 	
 	return state;
 }
@@ -332,10 +390,103 @@ void MissionState::resetInputState()
 }
 
 
-void MissionState::applyInputSnapshot()
+void MissionState::applyInputSnapshotToInputState()
 {
 	m_inputState.forwardInput = m_inputSnapshot.cyclicPitch;
 	m_inputState.yawInput = m_inputSnapshot.yawPedal;
 	m_inputState.verticalInput = m_inputSnapshot.collective;
 	m_inputState.brake = (m_inputSnapshot.cyclicPitch < 0.0f);
+}
+
+
+void MissionState::applyInputStateToHelicopter()
+{
+	m_helicopter.setNetworkInputState(m_inputState);
+	m_helicopter.update(1.0f / 60.0f, m_terrain);
+	m_helicopter.clearNetworkInputOverride();
+}
+
+
+void MissionState::updateLocal(float dt)
+{
+	applyInputSnapshotToInputState();
+	m_helicopter.setNetworkInputState(m_inputState);
+	m_helicopter.update(dt, m_terrain);
+	m_helicopter.clearNetworkInputOverride();
+}
+
+
+void MissionState::updateHost(float dt)
+{
+	InputSnapshotPacket inputPacket{};
+	bool hasRemoteInput = m_netHost.pollInputSnapshot(inputPacket);
+	
+	if(hasRemoteInput)
+	{
+		m_inputState.forwardInput = inputPacket.forwardInput;
+		m_inputState.yawInput = inputPacket.yawInput;
+		m_inputState.verticalInput = inputPacket.verticalInput;
+		m_inputState.brake = inputPacket.brake;
+	}
+	else
+	{
+		applyInputSnapshotToInputState();
+	}
+	
+	m_helicopter.setNetworkInputState(m_inputState);
+	m_helicopter.update(dt, m_terrain);
+	m_helicopter.clearNetworkInputOverride();
+	
+	StateSnapshotPacket statePacket{};
+	buildStateSnapshotPacket(statePacket);
+	
+	if(hasRemoteInput)
+		statePacket.tick = inputPacket.tick;
+	else
+		statePacket.tick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	
+	m_netHost.sendStateSnapshot(statePacket);
+}
+
+
+void MissionState::updateClient(float)
+{
+	InputSnapshotPacket inputPacket{};
+	inputPacket.tick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	inputPacket.forwardInput = m_inputSnapshot.cyclicPitch;
+	inputPacket.yawInput = m_inputSnapshot.yawPedal;
+	inputPacket.verticalInput = m_inputSnapshot.collective;
+	inputPacket.brake = (m_inputSnapshot.cyclicPitch < 0.0f);
+	
+	m_netClient.sendInputSnapshot(inputPacket);
+	
+	StateSnapshotPacket statePacket{};
+	if(m_netClient.pollStateSnapshot(statePacket))
+		applyStateSnapshotPacket(statePacket);
+}
+
+
+void MissionState::buildStateSnapshotPacket(StateSnapshotPacket& packet) const
+{
+	packet.x = m_helicopter.getX();
+	packet.y = m_helicopter.getY();
+	packet.z = m_helicopter.getZ();
+	
+	packet.yawDegrees = m_helicopter.getYawDegrees();
+	packet.pitchDegrees = m_helicopter.getPitchDegrees();
+	packet.rollDegrees = m_helicopter.getRollDegrees();
+	
+	packet.speed = m_helicopter.getSpeed();
+	packet.verticalSpeed = m_helicopter.getVerticalSpeed();
+	packet.altitudeAboveGround = m_helicopter.getAltitudeAboveGround();
+}
+
+
+void MissionState::applyStateSnapshotPacket(const StateSnapshotPacket& packet)
+{
+	m_helicopter.setPosition(packet.x, packet.y, packet.z);
+	m_helicopter.setYawDegrees(packet.yawDegrees);
+	
+	m_verticalSpeed = packet.verticalSpeed;
+	m_previousAltitude = packet.y;
 }

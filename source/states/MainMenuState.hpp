@@ -27,6 +27,7 @@ private:
 	enum class Selection
 	{
 		Singleplayer = 0,
+		Multiplayer,
 		Settings,
 		Exit
 	};

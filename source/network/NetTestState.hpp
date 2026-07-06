@@ -1,12 +1,13 @@
 #pragma once
 
-#include <memory>
-#include <SFML/Graphics/Text.hpp>
+#include <cstdint>
 #include <SFML/Graphics/Font.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <core/IState.hpp>
-#include <core/Event.hpp>
 #include <network/NetHost.hpp>
 #include <network/NetClient.hpp>
+#include <helicopter/Helicopter.hpp>
+#include <terrain/TerrainData.hpp>
 
 class App;
 class StateManager;
@@ -33,14 +34,31 @@ private:
 	
 	void updateHost(float dt);
 	void updateClient(float dt);
-	void drawInfo();
+	void updateInfoText();
+	
+	void applySnapshotToHelicopter(const StateSnapshotPacket& packet);
 	
 	App& m_app;
+	
 	sf::Font m_font;
-	sf::Text m_info;
+	sf::Text m_infoText;
+	
 	Mode m_mode;
+	std::uint32_t m_tick;
+	
 	NetHost m_host;
 	NetClient m_client;
-	std::uint32_t m_tick = 0;
-	float m_accumulator = 0.0f;
+	
+	TerrainData m_terrain;
+	Helicopter m_helicopter;
+	
+	float m_lastClientX;
+	float m_lastClientY;
+	float m_lastClientZ;
+	float m_lastClientYaw;
+	float m_lastClientPitch;
+	float m_lastClientRoll;
+	float m_lastClientSpeed;
+	float m_lastClientVerticalSpeed;
+	float m_lastClientAGL;
 };

@@ -3,8 +3,10 @@
 #include "core/Event.hpp"
 #include "core/EventType.hpp"
 #include "core/InputEvents.hpp"
-#include <SFML/Network/IpAddress.hpp>
+#include "network/NetCodec.hpp"
 #include <SFML/Window/Keyboard.hpp>
+#include <terrain/HGTLoader.hpp>
+#include <vector>
 #include <iostream>
 #include <sstream>
 
@@ -13,12 +15,22 @@ NetTestState::NetTestState(StateManager& manager, App& app):
 	IState(manager),
 	m_app(app),
 	m_font(),
-	m_info(),
+	m_infoText(),
 	m_mode(Mode::Host),
+	m_tick(0),
 	m_host(),
 	m_client(),
-	m_tick(0),
-	m_accumulator(0.0f)
+	m_terrain(),
+	m_helicopter(),
+	m_lastClientX(0.0f),
+	m_lastClientY(0.0f),
+	m_lastClientZ(0.0f),
+	m_lastClientYaw(0.0f),
+	m_lastClientPitch(0.0f),
+	m_lastClientRoll(0.0f),
+	m_lastClientSpeed(0.0f),
+	m_lastClientVerticalSpeed(0.0f),
+	m_lastClientAGL(0.0f)
 {
 	// empty
 }
@@ -32,14 +44,62 @@ void NetTestState::onEnter()
 		return;
 	}
 	
-	m_info.setFont(m_font);
-	m_info.setCharacterSize(20);
-	m_info.setFillColor(sf::Color::White);
-	m_info.setPosition(30.0f, 30.0f);
+	m_infoText.setFont(m_font);
+	m_infoText.setCharacterSize(20);
+	m_infoText.setFillColor(sf::Color::White);
+	m_infoText.setPosition(30.0f, 30.0f);
+	
+	HGTLoader loader;
+	HGTLoader::Data rawData;
+	
+	if(not loader.load("res/terrain/N34E062.hgt", rawData))
+	{
+		std::cerr << "Failed to load HGT file for NetTestState\n";
+		return;
+	}
+	
+	if(not m_terrain.buildFromHGT(
+		rawData.samples,
+		rawData.width,
+		rawData.height,
+		34.0f,
+		62.0f,
+		34.5f,
+		62.5f,
+		12000.0f,
+		256))
+	{
+		std::cerr << "Failed to build terrain data for NetTestState\n";
+		return;
+	}
+	
+	m_helicopter.setPosition(
+		0.0f,
+		m_terrain.getHeightAtWorldPosition(0.0f, 0.0f) + 5.0f,
+							 0.0f);
+	
+	m_helicopter.setYawDegrees(0.0f);
 	
 	m_mode = Mode::Host;
+	m_tick = 0;
 	
-	drawInfo();
+	m_lastClientX = 0.0f;
+	m_lastClientY = 0.0f;
+	m_lastClientZ = 0.0f;
+	m_lastClientYaw = 0.0f;
+	m_lastClientPitch = 0.0f;
+	m_lastClientRoll = 0.0f;
+	m_lastClientSpeed = 0.0f;
+	m_lastClientVerticalSpeed = 0.0f;
+	m_lastClientAGL = 0.0f;
+	
+	std::cout << "NetTest terrain loaded\n";
+	std::cout << "terrain width = " << m_terrain.getWorldSizeX() << "\n";
+	std::cout << "terrain height = " << m_terrain.getWorldSizeZ() << "\n";
+	std::cout << "heli start y = " << m_helicopter.getY() << "\n";
+	std::cout << "heli start agl = " << m_helicopter.getAltitudeAboveGround() << "\n";
+	
+	updateInfoText();
 }
 
 
@@ -78,7 +138,7 @@ void NetTestState::onEvent(Event& event)
 						std::cout << "[HOST] failed to start\n";
 					
 					m_mode = Mode::Host;
-					drawInfo();
+					updateInfoText();
 					event.stopPropagation();
 					break;
 				}
@@ -94,7 +154,7 @@ void NetTestState::onEvent(Event& event)
 						std::cout << "[CLIENT] failed to connect\n";
 					
 					m_mode = Mode::Client;
-					drawInfo();
+					updateInfoText();
 					event.stopPropagation();
 					break;
 				}
@@ -112,21 +172,15 @@ void NetTestState::onEvent(Event& event)
 					{
 						InputSnapshotPacket input{};
 						input.tick = ++m_tick;
-						input.throttle = 1.0f;
-						input.yaw = 0.25f;
-						input.pitch = 0.0f;
-						input.roll = 0.0f;
-						input.fire = false;
-						input.reset = false;
+						input.forwardInput = 1.0f;
+						input.yawInput = 0.25f;
+						input.verticalInput = 0.0f;
+						input.brake = false;
 						
 						if(m_client.sendInputSnapshot(input))
 							std::cout << "[CLIENT] sent input tick=" << input.tick << "\n";
 						else
 							std::cout << "[CLIENT] send failed\n";
-					}
-					else
-					{
-						std::cout << "[HOST] press Space in CLIENT window\n";
 					}
 					
 					event.stopPropagation();
@@ -148,93 +202,120 @@ void NetTestState::onEvent(Event& event)
 
 void NetTestState::update(float dt)
 {
-	m_accumulator += dt;
-	
-	while(m_accumulator >= 0.05f)
-	{
-		if(m_mode == Mode::Host)
-			updateHost(0.05f);
-		else
-			updateClient(0.05f);
-		
-		m_accumulator -= 0.05f;
-	}
+	if(m_mode == Mode::Host)
+		updateHost(dt);
+	else
+		updateClient(dt);
 }
 
 
-void NetTestState::render(float)
+void NetTestState::render(float alpha)
 {
 	auto& window = m_app.getWindow();
+	
+	window.pushGLStates();
 	window.clear(sf::Color(15, 18, 24));
-	window.draw(m_info);
+	window.draw(m_infoText);
+	window.popGLStates();
 }
 
 
-void NetTestState::updateHost(float)
+void NetTestState::updateHost(float dt)
 {
 	InputSnapshotPacket input{};
 	
 	if(m_host.pollInputSnapshot(input))
 	{
-		std::cout
-		<< "[HOST] received input tick=" << input.tick
-		<< " throttle=" << input.throttle
-		<< " yaw=" << input.yaw
-		<< "\n";
+		HelicopterInputState inputState{};
+		inputState.forwardInput = input.forwardInput;
+		inputState.yawInput = input.yawInput;
+		inputState.verticalInput = input.verticalInput;
+		inputState.brake = input.brake;
+		
+		m_helicopter.setNetworkInputState(inputState);
+		m_helicopter.update(dt, m_terrain);
+		m_helicopter.clearNetworkInputOverride();
 		
 		StateSnapshotPacket state{};
 		state.tick = input.tick;
-		state.x = 100.0f + static_cast<float>(input.tick);
-		state.y = 10.0f + input.throttle;
-		state.z = 200.0f;
-		state.yaw = input.yaw;
-		state.pitch = input.pitch;
-		state.roll = input.roll;
+		state.x = m_helicopter.getX();
+		state.y = m_helicopter.getY();
+		state.z = m_helicopter.getZ();
+		state.yawDegrees = m_helicopter.getYawDegrees();
+		state.pitchDegrees = m_helicopter.getPitchDegrees();
+		state.rollDegrees = m_helicopter.getRollDegrees();
+		state.speed = m_helicopter.getSpeed();
+		state.verticalSpeed = m_helicopter.getVerticalSpeed();
+		state.altitudeAboveGround = m_helicopter.getAltitudeAboveGround();
 		
 		if(m_host.sendStateSnapshot(state))
 		{
 			std::cout
-			<< "[HOST] sent state tick=" << state.tick
-			<< " x=" << state.x
-			<< " y=" << state.y
-			<< " z=" << state.z
+			<< "[HOST] tick=" << state.tick
+			<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
+			<< " yaw=" << state.yawDegrees
+			<< " pitch=" << state.pitchDegrees
+			<< " roll=" << state.rollDegrees
+			<< " speed=" << state.speed
+			<< " vs=" << state.verticalSpeed
+			<< " agl=" << state.altitudeAboveGround
 			<< "\n";
-		}
-		
-		else
-		{
-			std::cout << "[HOST] send state failed\n";
 		}
 	}
 }
+
 
 void NetTestState::updateClient(float)
 {
 	StateSnapshotPacket state{};
-	
 	if(m_client.pollStateSnapshot(state))
 	{
-		std::cout << "[CLIENT] received state tick=" << state.tick
-					<< " x=" << state.x
-					<< " y=" << state.y
-					<< " z=" << state.z
-					<< " yaw=" << state.yaw
-					<< "\n";
+		m_lastClientX = state.x;
+		m_lastClientY = state.y;
+		m_lastClientZ = state.z;
+		m_lastClientYaw = state.yawDegrees;
+		m_lastClientPitch = state.pitchDegrees;
+		m_lastClientRoll = state.rollDegrees;
+		m_lastClientSpeed = state.speed;
+		m_lastClientVerticalSpeed = state.verticalSpeed;
+		m_lastClientAGL = state.altitudeAboveGround;
+		
+		std::cout
+		<< "[CLIENT] tick=" << state.tick
+		<< " pos=(" << state.x << ", " << state.y << ", " << state.z << ")"
+		<< " yaw=" << state.yawDegrees
+		<< " pitch=" << state.pitchDegrees
+		<< " roll=" << state.rollDegrees
+		<< " speed=" << state.speed
+		<< " vs=" << state.verticalSpeed
+		<< " agl=" << state.altitudeAboveGround
+		<< "\n";
 	}
 }
 
 
-void NetTestState::drawInfo()
+void NetTestState::updateInfoText()
 {
 	std::ostringstream ss;
 	
-	ss << "NetTestState\n" << "\n"
-		<< "H - start host on port 55001\n"
-		<< "C - connect client to 127.0.0.1:55001\n"
-		<< "Space - send packet from client\n"
-		<< "Escape - quit\n"
-		<< "\n"
-		<< "Current mode: " << (m_mode == Mode::Host ? "HOST" : "CLIENT") << "\n";
+	ss << "NetTestState\n\n"
+		<< "H - host on 127.0.0.1:55001\n"
+		<< "C - client connect to 127.0.0.1:55001\n"
+		<< "Space - send input from client\n"
+		<< "Escape - quit\n\n"
+		<< "Mode: " << (m_mode == Mode::Host ? "HOST" : "CLIENT") << "\n";
 	
-	m_info.setString(ss.str());
+	if(m_mode == Mode::Client)
+	{
+		ss << "\nLast snapshot:\n"
+			<< "pos=(" << m_lastClientX << ", " << m_lastClientY << ", " << m_lastClientZ << ")\n"
+			<< "yaw=" << m_lastClientYaw
+			<< " pitch=" << m_lastClientPitch
+			<< " roll=" << m_lastClientRoll << "\n"
+			<< "speed=" << m_lastClientSpeed
+			<< " vs=" << m_lastClientVerticalSpeed
+			<< " agl=" << m_lastClientAGL << "\n";
+	}
+	
+	m_infoText.setString(ss.str());
 }

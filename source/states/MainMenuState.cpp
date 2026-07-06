@@ -14,6 +14,7 @@
 #include <core/InputEvents.hpp>
 #include <states/MissionState.hpp>
 #include <states/SettingsState.hpp>
+#include <states/NetworkMenuState.hpp>
 
 
 MainMenuState::MainMenuState(StateManager& manager, App& app):
@@ -50,7 +51,7 @@ void MainMenuState::onEnter()
 	m_hint.setFont(m_font);
 	m_hint.setCharacterSize(20);
 	m_hint.setFillColor(sf::Color(220, 220, 220));
-	m_hint.setString("Up/Down: choose   Enter: select   Escape: exit");
+	m_hint.setString("Up/Down: choose Enter: select Escape: exit");
 	
 	rebuildLayout();
 }
@@ -128,8 +129,9 @@ void MainMenuState::render(float)
 	window.clear(sf::Color(18, 22, 28));
 	window.draw(m_title);
 	window.draw(makeText("Singleplayer", 220.0f, m_selection == Selection::Singleplayer));
-	window.draw(makeText("Settings", 290.0f, m_selection == Selection::Settings));
-	window.draw(makeText("Exit", 360.0f, m_selection == Selection::Exit));
+	window.draw(makeText("Multiplayer", 290.0f, m_selection == Selection::Multiplayer));
+	window.draw(makeText("Settings", 360.0f, m_selection == Selection::Settings));
+	window.draw(makeText("Exit", 430.0f, m_selection == Selection::Exit));
 	window.draw(m_hint);
 	
 	window.popGLStates();
@@ -143,11 +145,15 @@ void MainMenuState::activateSelection()
 		case Selection::Singleplayer:
 			m_manager.replaceState(std::make_unique<MissionState>(m_manager, m_app));
 			break;
-			
+		
+		case Selection::Multiplayer:
+			m_manager.replaceState(std::make_unique<NetworkMenuState>(m_manager, m_app));
+			break;
+		
 		case Selection::Settings:
 			m_manager.pushState(std::make_unique<SettingsState>(m_manager, m_app));
 			break;
-			
+		
 		case Selection::Exit:
 			m_app.stop();
 			break;

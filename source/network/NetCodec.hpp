@@ -1,9 +1,14 @@
+/*
+ * NetCodec.hpp
+ * 
+ * 06-07-2026 by madpl
+ */
 #pragma once
 
 #include <vector>
 #include <cstddef>
 #include <cstdint>
-#include "NetPacket.hpp"
+#include <network/NetPacket.hpp>
 
 
 class NetCodec
