@@ -5,31 +5,24 @@
  */
 #pragma once
 
-#include <core/IListener.hpp>
+#include <core/IEventListener.hpp>
 
 class StateManager;
 
 
-class IState: public IListener
+class IState: public IEventListener
 {
 public:
 	explicit IState(StateManager& manager):
-	m_manager(manager)
+		m_manager(manager)
 	{
 		// empty
 	}
 	
 	virtual ~IState() = default;
 	
-	virtual void onEnter()
-	{
-		// empty
-	}
-	
-	virtual void onExit()
-	{
-		// empty
-	}
+	virtual void onEnter(){}
+	virtual void onExit(){}
 	
 	virtual void update(float dt) = 0;
 	virtual void render(float alpha) = 0;

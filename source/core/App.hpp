@@ -7,7 +7,7 @@
 
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <cstdint>
-#include <core/EventDispatcher.hpp>
+#include <core/EventRouter.hpp>
 #include <core/InputSnapshot.hpp>
 #include <core/StateManager.hpp>
 
@@ -31,11 +31,6 @@ public:
 		return m_stateManager;
 	}
 	
-	EventDispatcher& getEventDispatcher()
-	{
-		return m_dispatcher;
-	}
-	
 private:
 	void processSystemEvents();
 	InputSnapshot sampleInputSnapshot() const;
@@ -46,9 +41,8 @@ private:
 	
 	sf::RenderWindow m_window;
 	StateManager m_stateManager;
-	EventDispatcher m_dispatcher;
+	EventRouter m_eventRouter;
 	bool m_running;
 	IState* m_registeredStateListener;
-	bool m_pauseRequested;
 	std::uint64_t m_tickCounter;
 };

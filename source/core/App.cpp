@@ -3,6 +3,11 @@
  *
  * 05-07-2026 by madpl
  */
+#include <core/App.hpp>
+#include <core/EventRouter.hpp>
+#include <core/InputEvents.hpp>
+#include <core/IState.hpp>
+#include <states/MainMenuState.hpp>
 #include <states/MissionState.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/Window/Event.hpp>
@@ -10,18 +15,14 @@
 #include <GL/glew.h>
 #include <iostream>
 #include <memory>
-#include <core/App.hpp>
-#include <core/InputEvents.hpp>
-#include <states/MainMenuState.hpp>
 
 
 App::App():
 	m_window(),
 	m_stateManager(),
-	m_dispatcher(),
+	m_eventRouter(),
 	m_running(false),
 	m_registeredStateListener(nullptr),
-	m_pauseRequested(false),
 	m_tickCounter(0)
 {
 	// empty
@@ -33,14 +34,15 @@ bool App::initialize()
 	sf::ContextSettings settings;
 	settings.depthBits = 24;
 	settings.stencilBits = 8;
-	settings.antialiasingLevel = 6;
+	settings.antialiasingLevel = 2;
 	settings.majorVersion = 3;
 	settings.minorVersion = 3;
 	settings.attributeFlags = 0;
 	
-	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.6 by madpl 2026",
+	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
 				 sf::Style::Titlebar | sf::Style::Close, settings);
 	
+	m_window.setKeyRepeatEnabled(false);
 	m_window.setVerticalSyncEnabled(false);
 	m_window.setActive(true);
 	
@@ -50,7 +52,6 @@ bool App::initialize()
 	if(glewStatus != GLEW_OK)
 	{
 		std::cerr << "glewInit failed\n";
-		
 		return false;
 	}
 	
@@ -59,6 +60,7 @@ bool App::initialize()
 	glViewport(0, 0, 1280, 720);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
+	glClearDepth(1.0f);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
@@ -94,14 +96,6 @@ void App::run()
 		{
 			InputSnapshot inputSnapshot = sampleInputSnapshot();
 			
-			if(inputSnapshot.pauseRequested)
-			{
-				ActionEvent event(EventType::PauseRequested);
-				m_dispatcher.dispatch(event);
-				
-				m_pauseRequested = false;
-			}
-			
 			IState* currentState = m_stateManager.getCurrentState();
 			MissionState* missionState = dynamic_cast<MissionState*>(currentState);
 			if(missionState != nullptr)
@@ -111,7 +105,6 @@ void App::run()
 			updateStateListener();
 			
 			accumulator -= FIXED_DT;
-			
 			++updatesThisFrame;
 			++m_tickCounter;
 		}
@@ -128,7 +121,6 @@ void App::run()
 			alpha = 1.0f;
 		
 		m_stateManager.render(alpha);
-		
 		m_window.display();
 	}
 }
@@ -137,7 +129,6 @@ void App::run()
 void App::stop()
 {
 	m_running = false;
-	
 	m_window.close();
 }
 
@@ -153,7 +144,7 @@ void App::processSystemEvents()
 			case sf::Event::Closed:
 			{
 				QuitRequestedEvent event;
-				m_dispatcher.dispatch(event);
+				m_eventRouter.route(event);
 				
 				break;
 			}
@@ -161,15 +152,15 @@ void App::processSystemEvents()
 			case sf::Event::Resized:
 			{
 				WindowResizedEvent event(sfEvent.size.width, sfEvent.size.height);
-				m_dispatcher.dispatch(event);
+				m_eventRouter.route(event);
 				
 				break;
 			}
 			
 			case sf::Event::KeyPressed:
 			{
-				if(sfEvent.key.code == sf::Keyboard::Escape)
-					m_pauseRequested = true;
+				KeyEvent event(EventType::KeyPressed, sfEvent.key.code);
+				m_eventRouter.route(event);
 				
 				break;
 			}
@@ -184,7 +175,6 @@ void App::processSystemEvents()
 InputSnapshot App::sampleInputSnapshot() const
 {
 	InputSnapshot snapshot{};
-	
 	snapshot.tick = m_tickCounter;
 	snapshot.collective = 0.0f;
 	snapshot.cyclicPitch = 0.0f;
@@ -192,7 +182,7 @@ InputSnapshot App::sampleInputSnapshot() const
 	snapshot.yawPedal = 0.0f;
 	snapshot.fireCannon = false;
 	snapshot.launchMissile = false;
-	snapshot.pauseRequested = m_pauseRequested;
+	snapshot.pauseRequested = false;
 	
 	if(sf::Keyboard::isKeyPressed(sf::Keyboard::W))
 		snapshot.cyclicPitch += 1.0f;
@@ -230,10 +220,10 @@ void App::updateStateListener()
 		return;
 	
 	if(m_registeredStateListener != nullptr)
-		m_dispatcher.removeListener(m_registeredStateListener);
+		m_eventRouter.removeListener(m_registeredStateListener);
 	
 	m_registeredStateListener = currentState;
 	
 	if(m_registeredStateListener != nullptr)
-		m_dispatcher.addListener(m_registeredStateListener);
+		m_eventRouter.addListener(m_registeredStateListener);
 }

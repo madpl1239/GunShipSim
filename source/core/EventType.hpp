@@ -9,13 +9,10 @@
 enum class EventType
 {
 	Unknown = 0,
-	
+
 	QuitRequested,
 	WindowResized,
-	PauseRequested,
-	
-	StateChanged,
-	
-	MissionStarted,
-	MissionEnded
+
+	KeyPressed,
+	KeyReleased
 };

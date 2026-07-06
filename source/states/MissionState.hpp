@@ -26,7 +26,7 @@ public:
 	
 	void onEnter() override;
 	void onExit() override;
-	void onEvent(const Event& event) override;
+	void onEvent(Event& event) override;
 	void update(float dt) override;
 	void render(float alpha) override;
 	

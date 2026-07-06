@@ -9,6 +9,7 @@
 #include <core/App.hpp>
 #include <core/Event.hpp>
 #include <core/EventType.hpp>
+#include <core/InputEvents.hpp>
 
 
 SettingsState::SettingsState(StateManager& manager, App& app):
@@ -57,13 +58,31 @@ void SettingsState::onExit()
 }
 
 
-void SettingsState::onEvent(const Event& event)
+void SettingsState::onEvent(Event& event)
 {
 	switch(event.getType())
 	{
 		case EventType::QuitRequested:
-			break;
+		{
+			m_app.stop();
+			event.stopPropagation();
 			
+			break;
+		}
+		
+		case EventType::KeyPressed:
+		{
+			KeyEvent& keyEvent = static_cast<KeyEvent&>(event);
+			
+			if(keyEvent.getKey() == sf::Keyboard::Escape)
+			{
+				m_manager.popState();
+				event.stopPropagation();
+			}
+			
+			break;
+		}
+		
 		default:
 			break;
 	}
@@ -72,18 +91,18 @@ void SettingsState::onEvent(const Event& event)
 
 void SettingsState::update(float)
 {
-	if(sf::Keyboard::isKeyPressed(sf::Keyboard::Escape))
-	{
-		m_manager.popState();
-	}
+	// no-op
 }
 
 
 void SettingsState::render(float)
 {
 	auto& window = m_app.getWindow();
+	
+	m_app.getWindow().pushGLStates();
 	window.clear(sf::Color(18, 22, 28));
 	window.draw(m_title);
 	window.draw(m_body);
 	window.draw(m_hint);
+	m_app.getWindow().popGLStates();
 }

@@ -12,7 +12,8 @@ class Event
 {
 public:
 	explicit Event(EventType type):
-		m_type(type)
+		m_type(type),
+		m_handled(false)
 	{
 		// empty
 	}
@@ -24,6 +25,17 @@ public:
 		return m_type;
 	}
 	
-private:
+	bool isHandled() const
+	{
+		return m_handled;
+	}
+	
+	void stopPropagation()
+	{
+		m_handled = true;
+	}
+	
+protected:
 	EventType m_type;
+	bool m_handled;
 };

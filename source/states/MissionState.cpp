@@ -11,6 +11,7 @@
 #include <core/Event.hpp>
 #include <core/EventType.hpp>
 #include <core/InputEvents.hpp>
+#include <states/MainMenuState.hpp>
 
 
 namespace
@@ -135,13 +136,14 @@ void MissionState::onExit()
 }
 
 
-void MissionState::onEvent(const Event& event)
+void MissionState::onEvent(Event& event)
 {
 	switch(event.getType())
 	{
 		case EventType::QuitRequested:
 		{
 			m_app.stop();
+			event.stopPropagation();
 			
 			break;
 		}
@@ -158,13 +160,21 @@ void MissionState::onEvent(const Event& event)
 							static_cast<float>(resizedEvent.getHeight());
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
+			event.stopPropagation();
 			
 			break;
 		}
 		
-		case EventType::PauseRequested:
+		case EventType::KeyPressed:
 		{
-			m_app.stop();
+			KeyEvent& keyEvent = static_cast<KeyEvent&>(event);
+			
+			if(keyEvent.getKey() == sf::Keyboard::Escape)
+			{
+				// tu później pause menu albo powrót do main menu
+				m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
+				event.stopPropagation();
+			}
 			
 			break;
 		}

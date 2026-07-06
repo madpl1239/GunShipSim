@@ -59,18 +59,52 @@ void MainMenuState::onExit()
 }
 
 
-void MainMenuState::onEvent(const Event& event)
+void MainMenuState::onEvent(Event& event)
 {
 	switch(event.getType())
 	{
 		case EventType::QuitRequested:
+		{
 			m_app.stop();
-			break;
+			event.stopPropagation();
 			
-		case EventType::PauseRequested:
-			m_app.stop();
 			break;
+		}
+		
+		case EventType::KeyPressed:
+		{
+			KeyEvent& keyEvent = static_cast<KeyEvent&>(event);
 			
+			switch(keyEvent.getKey())
+			{
+				case sf::Keyboard::Up:
+					moveSelectionUp();
+					event.stopPropagation();
+					break;
+					
+				case sf::Keyboard::Down:
+					moveSelectionDown();
+					event.stopPropagation();
+					break;
+					
+				case sf::Keyboard::Enter:
+				case sf::Keyboard::Space:
+					activateSelection();
+					event.stopPropagation();
+					break;
+					
+				case sf::Keyboard::Escape:
+					m_app.stop();
+					event.stopPropagation();
+					break;
+					
+				default:
+					break;
+			}
+			
+			break;
+		}
+		
 		default:
 			break;
 	}
@@ -79,28 +113,7 @@ void MainMenuState::onEvent(const Event& event)
 
 void MainMenuState::update(float)
 {
-	bool upDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Up);
-	bool downDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Down);
-	bool enterDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Enter) or
-						sf::Keyboard::isKeyPressed(sf::Keyboard::Space);
-	bool escapeDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Escape);
-	
-	if(upDown and not m_upWasDown)
-		moveSelectionUp();
-	
-	if(downDown and not m_downWasDown)
-		moveSelectionDown();
-	
-	if(enterDown and not m_enterWasDown)
-		activateSelection();
-	
-	if(escapeDown and not m_escapeWasDown)
-		m_app.stop();
-	
-	m_upWasDown = upDown;
-	m_downWasDown = downDown;
-	m_enterWasDown = enterDown;
-	m_escapeWasDown = escapeDown;
+	// no-op
 }
 
 
@@ -109,11 +122,13 @@ void MainMenuState::render(float)
 	auto& window = m_app.getWindow();
 	window.clear(sf::Color(18, 22, 28));
 	
+	m_app.getWindow().pushGLStates();
 	window.draw(m_title);
 	window.draw(makeText("Singleplayer", 220.0f, m_selection == Selection::Singleplayer));
 	window.draw(makeText("Settings", 290.0f, m_selection == Selection::Settings));
 	window.draw(makeText("Exit", 360.0f, m_selection == Selection::Exit));
 	window.draw(m_hint);
+	m_app.getWindow().popGLStates();
 }
 
 

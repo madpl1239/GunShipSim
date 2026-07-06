@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <SFML/Window/Keyboard.hpp>
 #include <core/Event.hpp>
 
 
@@ -14,7 +15,6 @@ public:
 	QuitRequestedEvent():
 		Event(EventType::QuitRequested)
 	{
-		// empty
 	}
 };
 
@@ -27,7 +27,6 @@ public:
 		m_width(width),
 		m_height(height)
 	{
-		// empty
 	}
 	
 	unsigned getWidth() const
@@ -46,12 +45,20 @@ private:
 };
 
 
-class ActionEvent: public Event
+class KeyEvent: public Event
 {
 public:
-	explicit ActionEvent(EventType type):
-		Event(type)
+	KeyEvent(EventType type, sf::Keyboard::Key key):
+		Event(type),
+		m_key(key)
 	{
-		// empty
 	}
+	
+	sf::Keyboard::Key getKey() const
+	{
+		return m_key;
+	}
+	
+private:
+	sf::Keyboard::Key m_key;
 };
