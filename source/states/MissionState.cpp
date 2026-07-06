@@ -206,7 +206,25 @@ void MissionState::update(float dt)
 {
 	m_previousRenderState = m_currentRenderState;
 	
-	if(m_isHost)
+	if(m_networkConfig.mode == NetworkMode::Local)
+	{
+		if(m_localSlotIndex >= 0 &&
+			m_localSlotIndex < static_cast<std::int32_t>(m_slots.size()))
+		{
+			applyLocalInputToState(m_slots[static_cast<std::size_t>(m_localSlotIndex)].inputState);
+			m_slots[static_cast<std::size_t>(m_localSlotIndex)].lastProcessedTick = m_inputSnapshot.tick;
+		}
+		
+		for(auto& slot : m_slots)
+		{
+			if(not slot.occupied)
+				continue;
+			
+			slot.helicopter.update(dt, m_terrain, slot.inputState);
+		}
+	}
+	
+	else if(m_isHost)
 	{
 		processHostNetworking();
 		updateHostSimulation(dt);
