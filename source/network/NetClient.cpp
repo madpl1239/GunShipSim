@@ -12,11 +12,11 @@ NetClient::NetClient():
 	m_socket(),
 	m_hostAddress(sf::IpAddress::None),
 	m_hostPort(0),
-	m_connected(false),
-	m_accepted(false),
 	m_assignedPeerId(0),
 	m_assignedSlotIndex(NetGame::InvalidSlotIndex),
-	m_lastStatusMessage()
+	m_lastStatusMessage(),
+	m_connected(false),
+	m_accepted(false)
 {
 	// empty
 }

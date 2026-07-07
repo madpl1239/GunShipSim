@@ -3,8 +3,9 @@
 *
 * 07-07-2026 by madpl
 */
-#include "helicopter/Helicopter.hpp"
 #include <cmath>
+#include <helicopter/Helicopter.hpp>
+
 
 Helicopter::Helicopter():
 	m_x(0.0f),
@@ -18,7 +19,9 @@ Helicopter::Helicopter():
 	m_authoritativeVerticalSpeed(0.0f),
 	m_hasAuthoritativeOverride(false)
 {
+	// empty
 }
+
 
 void Helicopter::setPosition(float x, float y, float z)
 {
@@ -27,17 +30,21 @@ void Helicopter::setPosition(float x, float y, float z)
 	m_z = z;
 }
 
+
 void Helicopter::setYawDegrees(float yawDegrees)
 {
 	m_authoritativeYawDegrees = yawDegrees;
 	m_flightModel.setYawDegrees(yawDegrees);
 }
 
+
 void Helicopter::update(float dt, const TerrainData& terrain)
 {
 	const HelicopterInputState inputState = m_input.readInput();
+	
 	update(dt, terrain, inputState);
 }
+
 
 void Helicopter::update(float dt, const TerrainData& terrain, const HelicopterInputState& inputState)
 {
@@ -46,16 +53,11 @@ void Helicopter::update(float dt, const TerrainData& terrain, const HelicopterIn
 	updateTerrainRelation(terrain);
 }
 
-void Helicopter::applyAuthoritativeState(
-	float x,
-	float y,
-	float z,
-	float yawDegrees,
-	float pitchDegrees,
-	float rollDegrees,
-	float speedMetersPerSecond,
-	float verticalSpeedMetersPerSecond,
-	float altitudeAboveGroundMeters)
+
+void Helicopter::applyAuthoritativeState(float x, float y, float z,
+										 float yawDegrees, float pitchDegrees, float rollDegrees,
+										 float speedMetersPerSecond, float verticalSpeedMetersPerSecond,
+										 float altitudeAboveGroundMeters)
 {
 	m_x = x;
 	m_y = y;
@@ -70,25 +72,30 @@ void Helicopter::applyAuthoritativeState(
 	m_flightModel.setYawDegrees(yawDegrees);
 }
 
+
 float Helicopter::getX() const
 {
 	return m_x;
 }
+
 
 float Helicopter::getY() const
 {
 	return m_y;
 }
 
+
 float Helicopter::getZ() const
 {
 	return m_z;
 }
 
+
 float Helicopter::getYawDegrees() const
 {
 	return m_hasAuthoritativeOverride ? m_authoritativeYawDegrees : m_flightModel.getYawDegrees();
 }
+
 
 float Helicopter::getPitchDegrees() const
 {
@@ -100,6 +107,7 @@ float Helicopter::getRollDegrees() const
 	return m_hasAuthoritativeOverride ? m_authoritativeRollDegrees : m_flightModel.getRollDegrees();
 }
 
+
 float Helicopter::getSpeed() const
 {
 	return m_hasAuthoritativeOverride ? m_authoritativeSpeed : m_flightModel.getSpeed();
@@ -110,10 +118,12 @@ float Helicopter::getVerticalSpeed() const
 	return m_hasAuthoritativeOverride ? m_authoritativeVerticalSpeed : m_flightModel.getVerticalSpeed();
 }
 
+
 float Helicopter::getAltitudeAboveGround() const
 {
 	return m_altitudeAboveGround;
 }
+
 
 void Helicopter::updateMovement(float dt)
 {
@@ -121,16 +131,20 @@ void Helicopter::updateMovement(float dt)
 	const float yawRadians = m_flightModel.getYawDegrees() * pi / 180.0f;
 	const float forwardX = std::sin(yawRadians);
 	const float forwardZ = -std::cos(yawRadians);
+	
 	m_x += forwardX * m_flightModel.getSpeed() * dt;
 	m_z += forwardZ * m_flightModel.getSpeed() * dt;
 	m_y += m_flightModel.getVerticalSpeed() * dt;
 	m_hasAuthoritativeOverride = false;
 }
 
+
 void Helicopter::updateTerrainRelation(const TerrainData& terrain)
 {
 	const float terrainHeight = terrain.getHeightAtWorldPosition(m_x, m_z);
+	
 	if(m_y < terrainHeight + 5.0f)
 		m_y = terrainHeight + 5.0f;
+	
 	m_altitudeAboveGround = m_y - terrainHeight;
 }

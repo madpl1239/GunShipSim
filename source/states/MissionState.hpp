@@ -97,4 +97,13 @@ private:
 	std::array<HelicopterSlot, NetGame::MaxPlayers> m_slots;
 	WorldStatePacket m_lastWorldState;
 	bool m_hasWorldState;
+	
+	#ifdef DEBUG
+	// members for debug
+	std::uint32_t m_debugHostReceivedInputCount;
+	std::uint32_t m_debugHostLastInputPeerId;
+	std::uint32_t m_debugHostLastInputTick;
+	std::uint32_t m_debugClientWorldStateCount;
+	std::uint32_t m_debugClientLastWorldStateTick;
+	#endif
 };

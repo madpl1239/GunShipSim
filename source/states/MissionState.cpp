@@ -71,7 +71,14 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_nextPeerId(1),
 	m_slots{},
 	m_lastWorldState{},
-	m_hasWorldState(false)
+	m_hasWorldState(false),
+	#ifdef DEBUG
+	m_debugHostReceivedInputCount(0),
+	m_debugHostLastInputPeerId(0),
+	m_debugHostLastInputTick(0),
+	m_debugClientWorldStateCount(0),
+	m_debugClientLastWorldStateTick(0)
+	#endif
 {
 	resetInputState();
 }
@@ -305,10 +312,22 @@ void MissionState::updateHud()
 	m_hud.setSpeedMetersPerSecond(m_helicopter.getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
 	
+	#ifdef DEBUG
+	std::ostringstream oss;
+	#endif
+	
 	if(m_networkConfig.mode == NetworkMode::Host)
 	{
 		const std::string& msg = m_app.getNetHost().getLastStatusMessage();
+		
+		#ifdef DEBUG
+		oss << (msg.empty() ? "Hosting session" : msg)
+			<< "\nRX input count: " << m_debugHostReceivedInputCount
+			<< "\nLast peerId: " << m_debugHostLastInputPeerId
+			<< "\nLast input tick: " << m_debugHostLastInputTick;
+		#else
 		m_statusText.setString(msg.empty() ? "Hosting session" : msg);
+		#endif	
 	}
 	
 	else if(m_networkConfig.mode == NetworkMode::Client)
@@ -318,7 +337,9 @@ void MissionState::updateHud()
 	}
 	
 	else
-		m_statusText.setString("Local session");
+		oss << "Local session";
+		
+	m_statusText.setString(oss.str());
 }
 
 
@@ -478,8 +499,7 @@ void MissionState::updateSlotHelicopter(HelicopterSlot& slot, float dt)
 	inputState.verticalInput = slot.lastInput.collective;
 	inputState.brake = (slot.lastInput.cyclicPitch < 0.0f);
 	
-	slot.helicopter.applyInput(inputState);
-	slot.helicopter.update(dt, m_terrain);
+	slot.helicopter.update(dt, m_terrain, inputState);
 }
 
 
@@ -510,7 +530,7 @@ void MissionState::fillWorldStatePacket(WorldStatePacket& packet) const
 		out.rollDegrees = slot.helicopter.getRollDegrees();
 		
 		out.speedMetersPerSecond = slot.helicopter.getSpeed();
-		out.verticalSpeedMetersPerSecond = 0.0f;
+		out.verticalSpeedMetersPerSecond = slot.helicopter.getVerticalSpeed();
 		out.altitudeAboveGroundMeters = slot.helicopter.getAltitudeAboveGround();
 		
 		if(out.occupied != 0)
@@ -548,6 +568,12 @@ void MissionState::updateHostNetworking(float dt)
 	PlayerInputPacket inputPacket{};
 	while(m_app.getNetHost().pollPlayerInput(inputPacket))
 	{
+		#ifdef DEBUG
+		++m_debugHostReceivedInputCount;
+		m_debugHostLastInputPeerId = inputPacket.peerId;
+		m_debugHostLastInputTick = inputPacket.tick;
+		#endif
+		
 		for(HelicopterSlot& slot : m_slots)
 		{
 			if(slot.occupancy == SlotOccupancy::Occupied &&
@@ -576,6 +602,8 @@ void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 	m_lastWorldState = packet;
 	m_hasWorldState = true;
 	
+	const std::int32_t localClientSlot = m_app.getNetClient().getAssignedSlotIndex();
+	
 	for(std::size_t i = 0; i < m_slots.size(); ++i)
 	{
 		const HelicopterSlotStatePacket& in = packet.slots[i];
@@ -589,10 +617,16 @@ void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 		if(slot.occupancy == SlotOccupancy::Empty)
 			continue;
 		
-		slot.helicopter.setPosition(in.x, in.y, in.z);
-		slot.helicopter.setYawDegrees(in.yawDegrees);
-		slot.helicopter.setPitchDegrees(in.pitchDegrees);
-		slot.helicopter.setRollDegrees(in.rollDegrees);
+		if(m_networkConfig.mode == NetworkMode::Client and
+			static_cast<std::int32_t>(i) == localClientSlot)
+		{
+			continue;
+		}
+		
+		slot.helicopter.applyAuthoritativeState(in.x, in.y, in.z,
+												in.yawDegrees, in.pitchDegrees, in.rollDegrees,
+												in.speedMetersPerSecond, in.verticalSpeedMetersPerSecond,
+												in.altitudeAboveGroundMeters);
 	}
 }
 
@@ -602,6 +636,7 @@ void MissionState::updateClientNetworking()
 	if(m_app.getNetClient().isAccepted())
 	{
 		PlayerInputPacket packet{};
+		
 		packet.peerId = m_app.getNetClient().getAssignedPeerId();
 		packet.tick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
 		packet.collective = m_inputSnapshot.collective;
@@ -617,6 +652,7 @@ void MissionState::updateClientNetworking()
 	}
 	
 	WorldStatePacket worldPacket{};
+	
 	while(m_app.getNetClient().pollWorldState(worldPacket))
 		applyWorldStatePacket(worldPacket);
 }

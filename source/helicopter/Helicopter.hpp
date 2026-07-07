@@ -21,16 +21,10 @@ public:
 	void update(float dt, const TerrainData& terrain);
 	void update(float dt, const TerrainData& terrain, const HelicopterInputState& inputState);
 
-	void applyAuthoritativeState(
-		float x,
-		float y,
-		float z,
-		float yawDegrees,
-		float pitchDegrees,
-		float rollDegrees,
-		float speedMetersPerSecond,
-		float verticalSpeedMetersPerSecond,
-		float altitudeAboveGroundMeters);
+	void applyAuthoritativeState(float x, float y, float z,
+								 float yawDegrees, float pitchDegrees, float rollDegrees,
+								 float speedMetersPerSecond, float verticalSpeedMetersPerSecond,
+								 float altitudeAboveGroundMeters);
 
 	float getX() const;
 	float getY() const;

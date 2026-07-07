@@ -10,8 +10,8 @@
 
 NetHost::NetHost():
 	m_socket(),
-	m_peers{},
-	m_lastStatusMessage()
+	m_lastStatusMessage(),
+	m_peers{}
 {
 	// no-op
 }
