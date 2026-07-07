@@ -5,6 +5,7 @@
  */
 #include <GL/glew.h>
 #include <iostream>
+#include <sstream>
 #include <cmath>
 #include <states/MissionState.hpp>
 #include <core/App.hpp>
@@ -84,6 +85,18 @@ void MissionState::onEnter()
 		
 		return;
 	}
+	
+	if(not m_statusFont.loadFromFile("fonts/DejaVuSans.ttf"))
+	{
+		std::cerr << "Failed to load status font\n";
+		
+		return;
+	}
+	
+	m_statusText.setFont(m_statusFont);
+	m_statusText.setCharacterSize(18);
+	m_statusText.setFillColor(sf::Color::White);
+	m_statusText.setPosition(12.0f, 12.0f);
 	
 	HGTLoader loader;
 	HGTLoader::Data rawData;
@@ -219,6 +232,7 @@ void MissionState::render(float alpha)
 	
 	m_app.getWindow().pushGLStates();
 	m_hud.draw(m_app.getWindow());
+	m_app.getWindow().draw(m_statusText);
 	m_app.getWindow().popGLStates();
 }
 
@@ -236,6 +250,15 @@ void MissionState::updateHud()
 	m_hud.setAltitudeAboveGroundMeters(m_helicopter.getAltitudeAboveGround());
 	m_hud.setSpeedMetersPerSecond(m_helicopter.getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
+	
+	if(m_networkConfig.mode == NetworkMode::Host)
+		m_statusText.setString("host");
+	
+	else if(m_networkConfig.mode == NetworkMode::Client)
+		m_statusText.setString("client");
+	
+	else
+		m_statusText.setString("local");
 }
 
 
@@ -305,8 +328,7 @@ MissionState::RenderState MissionState::interpolateRenderState(float alpha) cons
 	state.camX = lerp(m_previousRenderState.camX, m_currentRenderState.camX, alpha);
 	
 	state.camY = lerp(m_previousRenderState.camY,
-					  m_currentRenderState.camY,
-		alpha);
+					  m_currentRenderState.camY, alpha);
 	
 	state.camZ = lerp(m_previousRenderState.camZ,
 					  m_currentRenderState.camZ, alpha);

@@ -15,6 +15,7 @@
 #include <core/IState.hpp>
 #include <states/MainMenuState.hpp>
 #include <states/MissionState.hpp>
+#include <core/Defines.hpp>
 
 
 App::App():
@@ -40,7 +41,7 @@ bool App::initialize()
 	settings.attributeFlags = 0;
 	
 	// 1280, 720
-	m_window.create(sf::VideoMode(1280, 720), "GunSim v 0.1 by madpl 2026",
+	m_window.create(sf::VideoMode(WIDTH, HEIGHT), "GunSim v 0.1 by madpl 2026",
 				 sf::Style::Titlebar | sf::Style::Close, settings);
 	
 	m_window.setKeyRepeatEnabled(false);
@@ -58,7 +59,7 @@ bool App::initialize()
 	
 	glGetError();
 	
-	glViewport(0, 0, 1280, 720);
+	glViewport(0, 0, WIDTH, HEIGHT);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glClearDepth(1.0f);

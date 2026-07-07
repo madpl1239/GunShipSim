@@ -108,17 +108,20 @@ void NetworkMenuState::onEvent(Event& event)
 				case sf::Keyboard::Up:
 					moveSelectionUp();
 					event.stopPropagation();
+					
 					break;
 					
 				case sf::Keyboard::Down:
 					moveSelectionDown();
 					event.stopPropagation();
+					
 					break;
 					
 				case sf::Keyboard::Enter:
 				case sf::Keyboard::Space:
 					activateSelection();
 					event.stopPropagation();
+					
 					break;
 					
 				case sf::Keyboard::Left:

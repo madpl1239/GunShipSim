@@ -132,7 +132,8 @@ bool NetHost::sendWorldStateToAll(const WorldStatePacket& packet)
 }
 
 
-bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port, std::uint32_t peerId, std::int32_t slotIndex)
+bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port,
+						   std::uint32_t peerId, std::int32_t slotIndex)
 {
 	for(auto& peer : m_peers)
 	{
@@ -144,6 +145,7 @@ bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port, std
 		peer.slotIndex = slotIndex;
 		peer.address = address;
 		peer.port = port;
+		
 		return true;
 	}
 	

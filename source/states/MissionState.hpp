@@ -71,6 +71,9 @@ private:
 	InputSnapshot m_inputSnapshot;
 	NetworkConfig m_networkConfig;
 	
+	sf::Font m_statusFont;
+	sf::Text m_statusText;
+	
 	float m_previousAltitude;
 	float m_verticalSpeed;
 	
