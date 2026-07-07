@@ -79,4 +79,7 @@ private:
 	
 	RenderState m_previousRenderState;
 	RenderState m_currentRenderState;
+	
+	bool m_joinRequestSent;
+	std::uint32_t m_nextPeerId;
 };

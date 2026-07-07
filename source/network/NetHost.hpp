@@ -9,6 +9,7 @@
 #include <SFML/Network/UdpSocket.hpp>
 #include <array>
 #include <cstdint>
+#include <string>
 #include <network/NetworkPackets.hpp>
 
 
@@ -38,6 +39,9 @@ public:
 	bool registerPeer(const sf::IpAddress& address, std::uint16_t port, std::uint32_t peerId, std::int32_t slotIndex);
 	void unregisterPeer(std::uint32_t peerId);
 	
+	const std::string& getLastStatusMessage() const;
+	void clearLastStatusMessage();
+	
 	const std::array<RemotePeer, NetGame::MaxPlayers>& getPeers() const;
 	
 private:
@@ -46,5 +50,6 @@ private:
 	
 private:
 	sf::UdpSocket m_socket;
+	std::string m_lastStatusMessage;
 	std::array<RemotePeer, NetGame::MaxPlayers> m_peers;
 };

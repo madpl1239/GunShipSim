@@ -15,7 +15,8 @@ NetClient::NetClient():
 	m_connected(false),
 	m_accepted(false),
 	m_assignedPeerId(0),
-	m_assignedSlotIndex(NetGame::InvalidSlotIndex)
+	m_assignedSlotIndex(NetGame::InvalidSlotIndex),
+	m_lastStatusMessage()
 {
 	// empty
 }
@@ -34,6 +35,8 @@ bool NetClient::connectTo(const sf::IpAddress& host, std::uint16_t port)
 	m_assignedPeerId = 0;
 	m_assignedSlotIndex = NetGame::InvalidSlotIndex;
 	
+	m_lastStatusMessage = "Connecting to host...";
+	
 	return true;
 }
 
@@ -45,6 +48,7 @@ void NetClient::disconnect()
 	m_accepted = false;
 	m_assignedPeerId = 0;
 	m_assignedSlotIndex = NetGame::InvalidSlotIndex;
+	m_lastStatusMessage.clear();
 }
 
 
@@ -94,6 +98,8 @@ bool NetClient::pollJoinAccept(JoinAcceptPacket& outPacket)
 		m_accepted = true;
 		m_assignedPeerId = packet.assignedPeerId;
 		m_assignedSlotIndex = packet.assignedSlotIndex;
+		
+		m_lastStatusMessage = "Connected to host";
 	}
 	
 	return true;
@@ -164,4 +170,16 @@ std::uint32_t NetClient::getAssignedPeerId() const
 std::int32_t NetClient::getAssignedSlotIndex() const
 {
 	return m_assignedSlotIndex;
+}
+
+
+const std::string& NetClient::getLastStatusMessage() const
+{
+	return m_lastStatusMessage;
+}
+
+
+void NetClient::clearLastStatusMessage()
+{
+	m_lastStatusMessage.clear();
 }

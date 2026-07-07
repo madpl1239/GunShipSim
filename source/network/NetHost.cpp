@@ -10,7 +10,8 @@
 
 NetHost::NetHost():
 	m_socket(),
-	m_peers{}
+	m_peers{},
+	m_lastStatusMessage()
 {
 	// no-op
 }
@@ -18,6 +19,8 @@ NetHost::NetHost():
 
 bool NetHost::start(std::uint16_t port)
 {
+	m_lastStatusMessage.clear();
+	
 	if(m_socket.bind(port) != sf::Socket::Done)
 		return false;
 	
@@ -32,6 +35,8 @@ bool NetHost::start(std::uint16_t port)
 
 void NetHost::stop()
 {
+	m_lastStatusMessage.clear();
+	
 	m_socket.unbind();
 	
 	for(auto& peer : m_peers)
@@ -146,6 +151,9 @@ bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port,
 		peer.address = address;
 		peer.port = port;
 		
+		m_lastStatusMessage = "Client connected: " + address.toString() +
+								":" + std::to_string(port);
+		
 		return true;
 	}
 	
@@ -188,4 +196,16 @@ NetHost::RemotePeer* NetHost::findPeerByPeerId(std::uint32_t peerId)
 	}
 	
 	return nullptr;
+}
+
+
+const std::string& NetHost::getLastStatusMessage() const
+{
+	return m_lastStatusMessage;
+}
+
+
+void NetHost::clearLastStatusMessage()
+{
+	m_lastStatusMessage.clear();
 }

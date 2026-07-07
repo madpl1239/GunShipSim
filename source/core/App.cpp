@@ -22,6 +22,9 @@ App::App():
 	m_window(),
 	m_stateManager(),
 	m_eventRouter(),
+	m_networkConfig(),
+	m_netHost(),
+	m_netClient(),
 	m_running(false),
 	m_registeredStateListener(nullptr),
 	m_tickCounter(0)
@@ -246,4 +249,40 @@ const NetworkConfig& App::getNetworkConfig() const
 void App::setNetworkConfig(const NetworkConfig& config)
 {
 	m_networkConfig = config;
+}
+
+
+NetHost& App::getNetHost()
+{
+	return m_netHost;
+}
+
+
+NetClient& App::getNetClient()
+{
+	return m_netClient;
+}
+
+
+const NetHost& App::getNetHost() const
+{
+	return m_netHost;
+}
+
+
+const NetClient& App::getNetClient() const
+{
+	return m_netClient;
+}
+
+
+sf::RenderWindow& App::getWindow()
+{
+	return m_window;
+}
+
+
+StateManager& App::getStateManager()
+{
+	return m_stateManager;
 }

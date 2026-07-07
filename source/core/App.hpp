@@ -11,6 +11,8 @@
 #include <core/InputSnapshot.hpp>
 #include <core/StateManager.hpp>
 #include <network/NetworkConfig.hpp>
+#include <network/NetHost.hpp>
+#include <network/NetClient.hpp>
 
 
 class App
@@ -26,15 +28,14 @@ public:
 	const NetworkConfig& getNetworkConfig() const;
 	void setNetworkConfig(const NetworkConfig& config);
 	
-	sf::RenderWindow& getWindow()
-	{
-		return m_window;
-	}
+	NetHost& getNetHost();
+	NetClient& getNetClient();
 	
-	StateManager& getStateManager()
-	{
-		return m_stateManager;
-	}
+	const NetHost& getNetHost() const;
+	const NetClient& getNetClient() const;
+	
+	sf::RenderWindow& getWindow();
+	StateManager& getStateManager();
 	
 private:
 	void processSystemEvents();
@@ -48,6 +49,8 @@ private:
 	StateManager m_stateManager;
 	EventRouter m_eventRouter;
 	NetworkConfig m_networkConfig;
+	NetHost m_netHost;
+	NetClient m_netClient;
 	
 	bool m_running;
 	IState* m_registeredStateListener;

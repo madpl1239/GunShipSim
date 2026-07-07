@@ -8,6 +8,7 @@
 #include <SFML/Network/IpAddress.hpp>
 #include <SFML/Network/UdpSocket.hpp>
 #include <cstdint>
+#include <string>
 #include <network/NetworkPackets.hpp>
 
 
@@ -31,12 +32,16 @@ public:
 	std::uint32_t getAssignedPeerId() const;
 	std::int32_t getAssignedSlotIndex() const;
 	
+	const std::string& getLastStatusMessage() const;
+	void clearLastStatusMessage();
+	
 private:
 	sf::UdpSocket m_socket;
 	sf::IpAddress m_hostAddress;
 	std::uint16_t m_hostPort;
-	bool m_connected;
-	bool m_accepted;
 	std::uint32_t m_assignedPeerId;
 	std::int32_t m_assignedSlotIndex;
+	std::string m_lastStatusMessage;
+	bool m_connected;
+	bool m_accepted;
 };

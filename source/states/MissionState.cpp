@@ -13,6 +13,7 @@
 #include <core/EventType.hpp>
 #include <core/InputEvents.hpp>
 #include <states/MainMenuState.hpp>
+#include <network/NetworkPackets.hpp>
 
 
 namespace
@@ -65,7 +66,9 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_previousAltitude(0.0f),
 	m_verticalSpeed(0.0f),
 	m_previousRenderState{},
-	m_currentRenderState{}
+	m_currentRenderState{},
+	m_joinRequestSent(false),
+	m_nextPeerId(1)
 {
 	resetInputState();
 }
@@ -91,6 +94,26 @@ void MissionState::onEnter()
 		std::cerr << "Failed to load status font\n";
 		
 		return;
+	}
+	
+	if(m_networkConfig.mode == NetworkMode::Host)
+	{
+		if(not m_app.getNetHost().start(m_networkConfig.port))
+			std::cerr << "Failed to start host on port " << m_networkConfig.port << "\n";
+	}
+	
+	else if(m_networkConfig.mode == NetworkMode::Client)
+	{
+		if(m_app.getNetClient().connectTo(m_networkConfig.ipAddress, m_networkConfig.port))
+		{
+			if(m_app.getNetClient().sendJoinRequest())
+				m_joinRequestSent = true;
+			else
+				std::cerr << "Failed to send join request\n";
+		}
+		
+		else
+			std::cerr << "Failed to connect client socket\n";
 	}
 	
 	m_statusText.setFont(m_statusFont);
@@ -147,6 +170,12 @@ void MissionState::onEnter()
 void MissionState::onExit()
 {
 	m_renderer.destroy();
+	
+	if(m_networkConfig.mode == NetworkMode::Host)
+		m_app.getNetHost().stop();
+	
+	else if(m_networkConfig.mode == NetworkMode::Client)
+		m_app.getNetClient().disconnect();
 }
 
 
@@ -200,6 +229,38 @@ void MissionState::onEvent(Event& event)
 
 void MissionState::update(float dt)
 {
+	if(m_networkConfig.mode == NetworkMode::Host)
+	{
+		sf::IpAddress joinAddress;
+		std::uint16_t joinPort = 0;
+		
+		if(m_app.getNetHost().pollJoinRequest(joinAddress, joinPort))
+		{
+			const std::uint32_t peerId = m_nextPeerId++;
+			const std::int32_t slotIndex = 1;
+			
+			if(m_app.getNetHost().registerPeer(joinAddress, joinPort, peerId, slotIndex))
+			{
+				JoinAcceptPacket acceptPacket{};
+				acceptPacket.accepted = 1;
+				acceptPacket.assignedPeerId = peerId;
+				acceptPacket.assignedSlotIndex = slotIndex;
+				
+				if(not m_app.getNetHost().sendJoinAccept(joinAddress, joinPort, acceptPacket))
+					std::cerr << "Failed to send join accept\n";
+			}
+		}
+	}
+	
+	else if(m_networkConfig.mode == NetworkMode::Client)
+	{
+		JoinAcceptPacket acceptPacket{};
+		if(m_app.getNetClient().pollJoinAccept(acceptPacket))
+		{
+			// status tekstowy ustawi się w NetClient
+		}
+	}
+	
 	m_previousRenderState = m_currentRenderState;
 	
 	applyInputSnapshot();
@@ -252,13 +313,19 @@ void MissionState::updateHud()
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
-		m_statusText.setString("host");
+	{
+		const std::string& msg = m_app.getNetHost().getLastStatusMessage();
+		m_statusText.setString(msg.empty() ? "Hosting session" : msg);
+	}
 	
 	else if(m_networkConfig.mode == NetworkMode::Client)
-		m_statusText.setString("client");
+	{
+		const std::string& msg = m_app.getNetClient().getLastStatusMessage();
+		m_statusText.setString(msg.empty() ? "Connecting to host..." : msg);
+	}
 	
 	else
-		m_statusText.setString("local");
+		m_statusText.setString("Local session");
 }
 
 
