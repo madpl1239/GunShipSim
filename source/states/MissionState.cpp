@@ -68,7 +68,10 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_previousRenderState{},
 	m_currentRenderState{},
 	m_joinRequestSent(false),
-	m_nextPeerId(1)
+	m_nextPeerId(1),
+	m_slots{},
+	m_lastWorldState{},
+	m_hasWorldState(false)
 {
 	resetInputState();
 }
@@ -155,6 +158,8 @@ void MissionState::onEnter()
 	m_previousAltitude = m_helicopter.getY();
 	m_verticalSpeed = 0.0f;
 	
+	initializeNetworkSlots();
+	
 	captureCurrentRenderState();
 	m_previousRenderState = m_currentRenderState;
 	
@@ -230,35 +235,23 @@ void MissionState::onEvent(Event& event)
 void MissionState::update(float dt)
 {
 	if(m_networkConfig.mode == NetworkMode::Host)
-	{
-		sf::IpAddress joinAddress;
-		std::uint16_t joinPort = 0;
-		
-		if(m_app.getNetHost().pollJoinRequest(joinAddress, joinPort))
-		{
-			const std::uint32_t peerId = m_nextPeerId++;
-			const std::int32_t slotIndex = 1;
-			
-			if(m_app.getNetHost().registerPeer(joinAddress, joinPort, peerId, slotIndex))
-			{
-				JoinAcceptPacket acceptPacket{};
-				acceptPacket.accepted = 1;
-				acceptPacket.assignedPeerId = peerId;
-				acceptPacket.assignedSlotIndex = slotIndex;
-				
-				if(not m_app.getNetHost().sendJoinAccept(joinAddress, joinPort, acceptPacket))
-					std::cerr << "Failed to send join accept\n";
-			}
-		}
-	}
+		updateHostNetworking(dt);
 	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		JoinAcceptPacket acceptPacket{};
 		if(m_app.getNetClient().pollJoinAccept(acceptPacket))
 		{
-			// status tekstowy ustawi się w NetClient
+			const std::int32_t slotIndex = m_app.getNetClient().getAssignedSlotIndex();
+			if(slotIndex >= 0 && slotIndex < static_cast<std::int32_t>(m_slots.size()))
+			{
+				m_slots[slotIndex].occupancy = SlotOccupancy::Occupied;
+				m_slots[slotIndex].locallyControlled = true;
+				m_slots[slotIndex].ownerPeerId = m_app.getNetClient().getAssignedPeerId();
+			}
 		}
+		
+		updateClientNetworking();
 	}
 	
 	m_previousRenderState = m_currentRenderState;
@@ -428,4 +421,202 @@ void MissionState::applyInputSnapshot()
 	m_inputState.yawInput = m_inputSnapshot.yawPedal;
 	m_inputState.verticalInput = m_inputSnapshot.collective;
 	m_inputState.brake = (m_inputSnapshot.cyclicPitch < 0.0f);
+}
+
+
+void MissionState::initializeNetworkSlots()
+{
+	for(std::size_t i = 0; i < m_slots.size(); ++i)
+	{
+		HelicopterSlot& slot = m_slots[i];
+		slot = HelicopterSlot{};
+		slot.slotIndex = static_cast<std::uint8_t>(i);
+		slot.spawnPoint = NetSpawn::DefaultSpawnPoints[i];
+		
+		slot.helicopter.setPosition(slot.spawnPoint.x,
+									m_terrain.getHeightAtWorldPosition(slot.spawnPoint.x, slot.spawnPoint.z) + 5.0f,
+									slot.spawnPoint.z);
+		
+		slot.helicopter.setYawDegrees(slot.spawnPoint.yawDegrees);
+	}
+	
+	if(m_networkConfig.mode == NetworkMode::Host or m_networkConfig.mode == NetworkMode::Local)
+	{
+		m_slots[0].occupancy = SlotOccupancy::Occupied;
+		m_slots[0].locallyControlled = true;
+		m_slots[0].ownerPeerId = NetGame::HostPeerId;
+	}
+	
+	if(m_networkConfig.mode == NetworkMode::Client)
+	{
+		m_slots[0].occupancy = SlotOccupancy::Occupied;
+		m_slots[0].ownerPeerId = NetGame::HostPeerId;
+	}
+}
+
+
+void MissionState::applyRemoteInputToSlot(HelicopterSlot& slot, const PlayerInputPacket& packet)
+{
+	slot.lastProcessedTick = packet.tick;
+	slot.lastInput.tick = packet.tick;
+	slot.lastInput.collective = packet.collective;
+	slot.lastInput.cyclicPitch = packet.cyclicPitch;
+	slot.lastInput.cyclicRoll = packet.cyclicRoll;
+	slot.lastInput.yawPedal = packet.yawPedal;
+	slot.lastInput.fireCannon = (packet.fireCannon != 0);
+	slot.lastInput.launchMissile = (packet.launchMissile != 0);
+	slot.lastInput.pauseRequested = (packet.pauseRequested != 0);
+	slot.inputReceivedThisTick = true;
+}
+
+
+void MissionState::updateSlotHelicopter(HelicopterSlot& slot, float dt)
+{
+	HelicopterInputState inputState{};
+	inputState.forwardInput = slot.lastInput.cyclicPitch;
+	inputState.yawInput = slot.lastInput.yawPedal;
+	inputState.verticalInput = slot.lastInput.collective;
+	inputState.brake = (slot.lastInput.cyclicPitch < 0.0f);
+	
+	slot.helicopter.applyInput(inputState);
+	slot.helicopter.update(dt, m_terrain);
+}
+
+
+void MissionState::fillWorldStatePacket(WorldStatePacket& packet) const
+{
+	packet = WorldStatePacket{};
+	packet.serverTick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	packet.yourPeerId = NetGame::HostPeerId;
+	packet.yourSlotIndex = 0;
+	packet.activePlayerCount = 0;
+	
+	for(std::size_t i = 0; i < m_slots.size(); ++i)
+	{
+		const HelicopterSlot& slot = m_slots[i];
+		HelicopterSlotStatePacket& out = packet.slots[i];
+		
+		out.slotIndex = static_cast<std::uint8_t>(i);
+		out.occupied = (slot.occupancy == SlotOccupancy::Occupied) ? 1 : 0;
+		out.ownerPeerId = slot.ownerPeerId;
+		out.lastProcessedTick = slot.lastProcessedTick;
+		
+		out.x = slot.helicopter.getX();
+		out.y = slot.helicopter.getY();
+		out.z = slot.helicopter.getZ();
+		
+		out.yawDegrees = slot.helicopter.getYawDegrees();
+		out.pitchDegrees = slot.helicopter.getPitchDegrees();
+		out.rollDegrees = slot.helicopter.getRollDegrees();
+		
+		out.speedMetersPerSecond = slot.helicopter.getSpeed();
+		out.verticalSpeedMetersPerSecond = 0.0f;
+		out.altitudeAboveGroundMeters = slot.helicopter.getAltitudeAboveGround();
+		
+		if(out.occupied != 0)
+			++packet.activePlayerCount;
+	}
+}
+
+
+void MissionState::updateHostNetworking(float dt)
+{
+	sf::IpAddress joinAddress;
+	std::uint16_t joinPort = 0;
+	
+	if(m_app.getNetHost().pollJoinRequest(joinAddress, joinPort))
+	{
+		const std::uint32_t peerId = m_nextPeerId++;
+		const std::int32_t slotIndex = 1;
+		
+		if(m_app.getNetHost().registerPeer(joinAddress, joinPort, peerId, slotIndex))
+		{
+			m_slots[slotIndex].occupancy = SlotOccupancy::Occupied;
+			m_slots[slotIndex].locallyControlled = false;
+			m_slots[slotIndex].ownerPeerId = peerId;
+			
+			JoinAcceptPacket acceptPacket{};
+			acceptPacket.accepted = 1;
+			acceptPacket.assignedPeerId = peerId;
+			acceptPacket.assignedSlotIndex = slotIndex;
+			
+			if(not m_app.getNetHost().sendJoinAccept(joinAddress, joinPort, acceptPacket))
+				std::cerr << "Failed to send join accept\n";
+		}
+	}
+	
+	PlayerInputPacket inputPacket{};
+	while(m_app.getNetHost().pollPlayerInput(inputPacket))
+	{
+		for(HelicopterSlot& slot : m_slots)
+		{
+			if(slot.occupancy == SlotOccupancy::Occupied &&
+				slot.ownerPeerId == inputPacket.peerId)
+			{
+				applyRemoteInputToSlot(slot, inputPacket);
+				updateSlotHelicopter(slot, dt);
+				break;
+			}
+		}
+	}
+	
+	m_slots[0].occupancy = SlotOccupancy::Occupied;
+	m_slots[0].ownerPeerId = NetGame::HostPeerId;
+	m_slots[0].helicopter = m_helicopter;
+	m_slots[0].lastProcessedTick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	
+	WorldStatePacket packet{};
+	fillWorldStatePacket(packet);
+	m_app.getNetHost().sendWorldStateToAll(packet);
+}
+
+
+void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
+{
+	m_lastWorldState = packet;
+	m_hasWorldState = true;
+	
+	for(std::size_t i = 0; i < m_slots.size(); ++i)
+	{
+		const HelicopterSlotStatePacket& in = packet.slots[i];
+		HelicopterSlot& slot = m_slots[i];
+		
+		slot.slotIndex = in.slotIndex;
+		slot.occupancy = (in.occupied != 0) ? SlotOccupancy::Occupied : SlotOccupancy::Empty;
+		slot.ownerPeerId = in.ownerPeerId;
+		slot.lastProcessedTick = in.lastProcessedTick;
+		
+		if(slot.occupancy == SlotOccupancy::Empty)
+			continue;
+		
+		slot.helicopter.setPosition(in.x, in.y, in.z);
+		slot.helicopter.setYawDegrees(in.yawDegrees);
+		slot.helicopter.setPitchDegrees(in.pitchDegrees);
+		slot.helicopter.setRollDegrees(in.rollDegrees);
+	}
+}
+
+
+void MissionState::updateClientNetworking()
+{
+	if(m_app.getNetClient().isAccepted())
+	{
+		PlayerInputPacket packet{};
+		packet.peerId = m_app.getNetClient().getAssignedPeerId();
+		packet.tick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+		packet.collective = m_inputSnapshot.collective;
+		packet.cyclicPitch = m_inputSnapshot.cyclicPitch;
+		packet.cyclicRoll = m_inputSnapshot.cyclicRoll;
+		packet.yawPedal = m_inputSnapshot.yawPedal;
+		packet.brake = (m_inputSnapshot.cyclicPitch < 0.0f) ? 1 : 0;
+		packet.fireCannon = m_inputSnapshot.fireCannon ? 1 : 0;
+		packet.launchMissile = m_inputSnapshot.launchMissile ? 1 : 0;
+		packet.pauseRequested = m_inputSnapshot.pauseRequested ? 1 : 0;
+		
+		m_app.getNetClient().sendPlayerInput(packet);
+	}
+	
+	WorldStatePacket worldPacket{};
+	while(m_app.getNetClient().pollWorldState(worldPacket))
+		applyWorldStatePacket(worldPacket);
 }

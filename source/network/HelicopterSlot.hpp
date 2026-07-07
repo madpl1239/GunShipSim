@@ -8,7 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <helicopter/Helicopter.hpp>
-#include <input/InputSnapshot.hpp>
+#include <core/InputSnapshot.hpp>
 #include <network/NetworkPackets.hpp>
 
 

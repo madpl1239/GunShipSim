@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <array>
 #include <core/IState.hpp>
 #include <core/InputSnapshot.hpp>
 #include <camera/Camera.hpp>
@@ -15,6 +16,8 @@
 #include <terrain/TerrainData.hpp>
 #include <terrain/TerrainRenderer.hpp>
 #include <network/NetworkConfig.hpp>
+#include <network/HelicopterSlot.hpp>
+#include <network/NetworkPackets.hpp>
 
 
 class App;
@@ -60,6 +63,14 @@ private:
 	void resetInputState();
 	void applyInputSnapshot();
 	
+	void initializeNetworkSlots();
+	void updateHostNetworking(float dt);
+	void updateClientNetworking();
+	void applyRemoteInputToSlot(HelicopterSlot& slot, const PlayerInputPacket& packet);
+	void updateSlotHelicopter(HelicopterSlot& slot, float dt);
+	void fillWorldStatePacket(WorldStatePacket& packet) const;
+	void applyWorldStatePacket(const WorldStatePacket& packet);
+	
 	App& m_app;
 	
 	HUD m_hud;
@@ -82,4 +93,8 @@ private:
 	
 	bool m_joinRequestSent;
 	std::uint32_t m_nextPeerId;
+	
+	std::array<HelicopterSlot, NetGame::MaxPlayers> m_slots;
+	WorldStatePacket m_lastWorldState;
+	bool m_hasWorldState;
 };
