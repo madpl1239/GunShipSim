@@ -59,7 +59,7 @@ namespace
 
 
 MissionState::MissionState(StateManager& manager, App& app):
-IState(manager),
+	IState(manager),
 	m_app(app),
 	m_hud(),
 	m_terrain(),
@@ -122,6 +122,7 @@ void MissionState::onEnter()
 	if(not m_hud.initialize("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load HUD font\n";
+		
 		return;
 	}
 	
@@ -149,6 +150,7 @@ void MissionState::onExit()
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
 		m_app.getNetHost().stop();
+	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 		m_app.getNetClient().disconnect();
 }
@@ -162,6 +164,7 @@ void MissionState::onEvent(Event& event)
 		{
 			m_app.stop();
 			event.stopPropagation();
+			
 			break;
 		}
 		
@@ -169,12 +172,14 @@ void MissionState::onEvent(Event& event)
 		{
 			handleWindowResizeEvent(event);
 			event.stopPropagation();
+			
 			break;
 		}
 		
 		case EventType::KeyPressed:
 		{
 			handleKeyPressedEvent(event);
+			
 			break;
 		}
 		
@@ -229,6 +234,7 @@ void MissionState::initializeUi()
 	if(not m_statusFont.loadFromFile("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load status font\n";
+		
 		return;
 	}
 	
@@ -253,19 +259,22 @@ bool MissionState::initializeTerrainAndRenderer()
 	if(not loader.load("res/terrain/N34E062.hgt", rawData))
 	{
 		std::cerr << "Failed to load HGT file\n";
+		
 		return false;
 	}
 	
 	if(not m_terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
-		34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
+									34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data\n";
+		
 		return false;
 	}
 	
 	if(not m_renderer.create(m_terrain))
 	{
 		std::cerr << "Failed to create terrain renderer\n";
+		
 		return false;
 	}
 	
@@ -280,15 +289,18 @@ void MissionState::initializeScene()
 		if(not m_app.getNetHost().start(m_networkConfig.port))
 			std::cerr << "Failed to start host on port " << m_networkConfig.port << "\n";
 	}
+	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		if(m_app.getNetClient().connectTo(m_networkConfig.ipAddress, m_networkConfig.port))
 		{
 			if(m_app.getNetClient().sendJoinRequest())
 				m_joinRequestSent = true;
+			
 			else
 				std::cerr << "Failed to send join request\n";
 		}
+		
 		else
 		{
 			std::cerr << "Failed to connect client socket\n";
@@ -319,12 +331,11 @@ void MissionState::handleWindowResizeEvent(const Event& event)
 {
 	const WindowResizedEvent& resizedEvent = static_cast<const WindowResizedEvent&>(event);
 	
-	glViewport(0, 0,
-			   static_cast<GLsizei>(resizedEvent.getWidth()),
+	glViewport(0, 0, static_cast<GLsizei>(resizedEvent.getWidth()),
 			   static_cast<GLsizei>(resizedEvent.getHeight()));
 	
 	float aspect = static_cast<float>(resizedEvent.getWidth()) /
-	static_cast<float>(resizedEvent.getHeight());
+					static_cast<float>(resizedEvent.getHeight());
 	
 	m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
 }
@@ -339,21 +350,26 @@ void MissionState::handleKeyPressedEvent(Event& event)
 		m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
 		event.stopPropagation();
 	}
+	
 	else if(keyEvent.getKey() == sf::Keyboard::F3)
 	{
 		m_showDebugOverlay = not m_showDebugOverlay;
 		event.stopPropagation();
 	}
+	
 	else if(keyEvent.getKey() == sf::Keyboard::F4)
 	{
 		m_freezeDebugOverlay = not m_freezeDebugOverlay;
+		
 		if(m_freezeDebugOverlay)
 		{
 			m_snapshotMode = false;
 			captureDebugSnapshot();
 		}
+		
 		event.stopPropagation();
 	}
+	
 	else if(keyEvent.getKey() == sf::Keyboard::F5)
 	{
 		m_snapshotMode = true;
@@ -371,6 +387,7 @@ void MissionState::updateNetworking(float dt)
 		m_app.getNetHost().pumpIncomingPackets();
 		updateHostNetworking(dt);
 	}
+	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		m_app.getNetClient().pumpIncomingPackets();
@@ -449,15 +466,19 @@ std::string MissionState::buildDebugText() const
 	
 	if(m_freezeDebugOverlay)
 		oss << "[F3] show/hide  [F4] unfreeze  [F5] snapshot\nstate: FROZEN\n";
+	
 	else if(m_snapshotMode)
 		oss << "[F3] show/hide  [F4] freeze live  [F5] snapshot\nstate: SNAPSHOT\n";
+	
 	else
 		oss << "[F3] show/hide  [F4] freeze live  [F5] snapshot\nstate: LIVE\n";
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
 		appendHostDebugText(oss);
+	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 		appendClientDebugText(oss);
+	
 	else
 		appendLocalDebugText(oss);
 	
@@ -470,12 +491,12 @@ void MissionState::appendHostDebugText(std::ostringstream& oss) const
 	const std::string& msg = m_app.getNetHost().getLastStatusMessage();
 	
 	oss << "mode: HOST\n"
-	<< "status: " << (msg.empty() ? "Hosting session" : msg) << "\n\n"
-	<< "input RX total: " << m_debugHostReceivedInputTotal << "\n"
-	<< "input RX/sec : " << m_debugHostReceivedInputPerSecond << "\n"
-	<< "last peerId  : " << m_debugHostLastInputPeerId << "\n"
-	<< "last tick    : " << m_debugHostLastInputTick << "\n"
-	<< "last recv dt : ";
+		<< "status: " << (msg.empty() ? "Hosting session" : msg) << "\n\n"
+		<< "input RX total: " << m_debugHostReceivedInputTotal << "\n"
+		<< "input RX/sec : " << m_debugHostReceivedInputPerSecond << "\n"
+		<< "last peerId  : " << m_debugHostLastInputPeerId << "\n"
+		<< "last tick    : " << m_debugHostLastInputTick << "\n"
+		<< "last recv dt : ";
 	
 	if(m_debugHostLastReceiveDt < 0.0f)
 		oss << "n/a";
@@ -491,12 +512,12 @@ void MissionState::appendClientDebugText(std::ostringstream& oss) const
 	const std::string& msg = m_app.getNetClient().getLastStatusMessage();
 	
 	oss << "mode: CLIENT\n"
-	<< "status: " << (msg.empty() ? "Connecting to host..." : msg) << "\n"
-	<< "accepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no") << "\n"
-	<< "slot    : " << m_app.getNetClient().getAssignedSlotIndex() << "\n\n"
-	<< "input TX total : " << m_debugClientSentInputTotal << "\n"
-	<< "input TX/sec   : " << m_debugClientSentInputPerSecond << "\n"
-	<< "last send dt   : ";
+		<< "status: " << (msg.empty() ? "Connecting to host..." : msg) << "\n"
+		<< "accepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no") << "\n"
+		<< "slot    : " << m_app.getNetClient().getAssignedSlotIndex() << "\n\n"
+		<< "input TX total : " << m_debugClientSentInputTotal << "\n"
+		<< "input TX/sec   : " << m_debugClientSentInputPerSecond << "\n"
+		<< "last send dt   : ";
 	
 	if(m_debugClientLastSendDt < 0.0f)
 		oss << "n/a";
@@ -504,10 +525,10 @@ void MissionState::appendClientDebugText(std::ostringstream& oss) const
 		oss << toMilliseconds(m_debugClientLastSendDt) << " ms";
 	
 	oss << "\nmax send dt    : " << toMilliseconds(m_debugClientMaxSendDtInWindow) << " ms"
-	<< "\n\nworld RX total : " << m_debugClientReceivedWorldTotal
-	<< "\nworld RX/sec   : " << m_debugClientReceivedWorldPerSecond
-	<< "\nlast world tick: " << m_debugClientLastWorldStateTick
-	<< "\nlast world dt  : ";
+		<< "\n\nworld RX total : " << m_debugClientReceivedWorldTotal
+		<< "\nworld RX/sec   : " << m_debugClientReceivedWorldPerSecond
+		<< "\nlast world tick: " << m_debugClientLastWorldStateTick
+		<< "\nlast world dt  : ";
 	
 	if(m_debugClientLastWorldReceiveDt < 0.0f)
 		oss << "n/a";
@@ -532,9 +553,11 @@ void MissionState::refreshDebugText()
 	{
 		if(not m_frozenDebugText.empty())
 			m_statusText.setString(m_frozenDebugText);
+		
 		else
 			m_statusText.setString(liveText);
 	}
+	
 	else
 	{
 		m_statusText.setString(liveText);
@@ -770,6 +793,7 @@ void MissionState::updateHostNetworking(float dt)
 			{
 				applyRemoteInputToSlot(slot, inputPacket);
 				updateSlotHelicopter(slot, dt);
+				
 				break;
 			}
 		}
