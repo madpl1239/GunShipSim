@@ -21,6 +21,7 @@
 #include <network/HelicopterSlot.hpp>
 #include <network/NetworkConfig.hpp>
 #include <network/NetworkPackets.hpp>
+#include <helicopter/HelicopterRenderer.hpp>
 
 class App;
 
@@ -96,12 +97,16 @@ private:
 	void fillWorldStatePacket(WorldStatePacket& packet) const;
 	bool applyWorldStatePacket(const WorldStatePacket& packet);
 	void resetNetworkDebugCounters();
+	void renderNetworkHelicopters();
+	void publishLocalHelicopterToOwnedSlot();
 	
 	App& m_app;
 	
 	HUD m_hud;
+	
 	TerrainData m_terrain;
 	TerrainRenderer m_renderer;
+	HelicopterRenderer m_helicopterRenderer;
 	Helicopter m_helicopter;
 	Camera m_camera;
 	HelicopterInputState m_inputState;

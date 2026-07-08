@@ -64,6 +64,7 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_hud(),
 	m_terrain(),
 	m_renderer(),
+	m_helicopterRenderer(),
 	m_helicopter(),
 	m_camera(),
 	m_inputState{},
@@ -116,6 +117,7 @@ MissionState::MissionState(StateManager& manager, App& app):
 
 MissionState::~MissionState()
 {
+	m_helicopterRenderer.destroy();
 	m_renderer.destroy();
 }
 
@@ -133,6 +135,13 @@ void MissionState::onEnter()
 	
 	if(not initializeTerrainAndRenderer())
 		return;
+	
+	if(not m_helicopterRenderer.create())
+	{
+		std::cerr << "Failed to create helicopter renderer\n";
+		
+		return;
+	}
 	
 	initializeScene();
 	initializeNetworkSlots();
@@ -158,6 +167,8 @@ void MissionState::onExit()
 	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 		m_app.getNetClient().disconnect();
+	
+	m_helicopterRenderer.destroy();
 }
 
 
@@ -200,6 +211,7 @@ void MissionState::update(float dt)
 	
 	m_previousRenderState = m_currentRenderState;
 	updateLocalSimulation(dt);
+	publishLocalHelicopterToOwnedSlot();
 	captureCurrentRenderState();
 	
 	updateNetworkDebugWindow(dt);
@@ -220,6 +232,8 @@ void MissionState::render(float alpha)
 	
 	m_renderer.render(m_camera.getViewProjectionMatrix(),
 					  glm::vec3(state.camX, state.camY, state.camZ));
+	
+	renderNetworkHelicopters();
 	
 	m_app.getWindow().pushGLStates();
 	renderHud();
@@ -805,10 +819,12 @@ void MissionState::updateHostNetworking(float dt)
 		}
 	}
 	
+	/*
 	m_slots[0].occupancy = SlotOccupancy::Occupied;
 	m_slots[0].ownerPeerId = NetGame::HostPeerId;
 	m_slots[0].helicopter = m_helicopter;
 	m_slots[0].lastProcessedTick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	*/
 	
 	WorldStatePacket packet{};
 	fillWorldStatePacket(packet);
@@ -976,4 +992,67 @@ void MissionState::resetNetworkDebugCounters()
 	m_debugClientLastWorldStateTick = 0;
 	m_debugClientLastWorldReceiveDt = -1.0f;
 	m_debugClientMaxWorldReceiveDtInWindow = 0.0f;
+}
+
+
+void MissionState::renderNetworkHelicopters()
+{
+	const glm::mat4 viewProjectionMatrix = m_camera.getViewProjectionMatrix();
+	
+	std::uint32_t localPeerId = NetGame::HostPeerId;
+	
+	if(m_networkConfig.mode == NetworkMode::Client)
+		localPeerId = m_app.getNetClient().getAssignedPeerId();
+	
+	for(std::size_t i = 0; i < m_slots.size(); ++i)
+	{
+		const HelicopterSlot& slot = m_slots[i];
+		
+		if(slot.occupancy != SlotOccupancy::Occupied)
+			continue;
+		
+		if(slot.ownerPeerId == localPeerId)
+			continue;
+		
+		glm::vec3 color(0.85f, 0.25f, 0.25f);
+		
+		if(slot.ownerPeerId == NetGame::HostPeerId)
+			color = glm::vec3(0.95f, 0.80f, 0.20f);
+		
+		m_helicopterRenderer.renderBoxModel(viewProjectionMatrix, slot.helicopter.getX(),
+											slot.helicopter.getY() + 1.2f, slot.helicopter.getZ(),
+											slot.helicopter.getYawDegrees(),
+											slot.helicopter.getPitchDegrees(),
+											slot.helicopter.getRollDegrees(), color);
+	}
+}
+
+
+void MissionState::publishLocalHelicopterToOwnedSlot()
+{
+	if(m_networkConfig.mode == NetworkMode::Host or m_networkConfig.mode == NetworkMode::Local)
+	{
+		m_slots[0].occupancy = SlotOccupancy::Occupied;
+		m_slots[0].locallyControlled = true;
+		m_slots[0].ownerPeerId = NetGame::HostPeerId;
+		m_slots[0].helicopter = m_helicopter;
+		m_slots[0].lastProcessedTick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+		
+		return;
+	}
+	
+	if(m_networkConfig.mode == NetworkMode::Client)
+	{
+		const std::int32_t localSlotIndex = m_app.getNetClient().getAssignedSlotIndex();
+		
+		if(localSlotIndex < 0 or localSlotIndex >= static_cast<std::int32_t>(m_slots.size()))
+			return;
+		
+		HelicopterSlot& localSlot = m_slots[localSlotIndex];
+		localSlot.occupancy = SlotOccupancy::Occupied;
+		localSlot.locallyControlled = true;
+		localSlot.ownerPeerId = m_app.getNetClient().getAssignedPeerId();
+		localSlot.helicopter = m_helicopter;
+		localSlot.lastProcessedTick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
+	}
 }
