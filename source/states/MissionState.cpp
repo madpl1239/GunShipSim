@@ -43,7 +43,6 @@ namespace
 		
 		if(delta > 180.0f)
 			delta -= 360.0f;
-		
 		else if(delta < -180.0f)
 			delta += 360.0f;
 		
@@ -53,32 +52,41 @@ namespace
 
 
 MissionState::MissionState(StateManager& manager, App& app):
-	IState(manager),
-	m_app(app),
-	m_hud(),
-	m_terrain(),
-	m_renderer(),
-	m_helicopter(),
-	m_camera(),
-	m_inputState{},
-	m_inputSnapshot{},
-	m_networkConfig(app.getNetworkConfig()),
-	m_previousAltitude(0.0f),
-	m_verticalSpeed(0.0f),
-	m_previousRenderState{},
-	m_currentRenderState{},
-	m_joinRequestSent(false),
-	m_nextPeerId(1),
-	m_slots{},
-	m_lastWorldState{},
-	m_hasWorldState(false),
-	#ifdef DEBUG
-	m_debugHostReceivedInputCount(0),
-	m_debugHostLastInputPeerId(0),
-	m_debugHostLastInputTick(0),
-	m_debugClientWorldStateCount(0),
-	m_debugClientLastWorldStateTick(0)
-	#endif
+IState(manager),
+m_app(app),
+m_hud(),
+m_terrain(),
+m_renderer(),
+m_helicopter(),
+m_camera(),
+m_inputState{},
+m_inputSnapshot{},
+m_networkConfig(app.getNetworkConfig()),
+m_previousAltitude(0.0f),
+m_verticalSpeed(0.0f),
+m_previousRenderState{},
+m_currentRenderState{},
+m_joinRequestSent(false),
+m_nextPeerId(1),
+m_slots{},
+m_lastWorldState{},
+m_hasWorldState(false),
+m_debugNetAccumSeconds(0.0f),
+m_debugClientSentInputTotal(0),
+m_debugClientSentInputPerSecond(0),
+m_debugClientSentInputThisWindow(0),
+m_debugClientLastSendDt(-1.0f),
+m_debugHostReceivedInputTotal(0),
+m_debugHostReceivedInputPerSecond(0),
+m_debugHostReceivedInputThisWindow(0),
+m_debugHostLastInputPeerId(0),
+m_debugHostLastInputTick(0),
+m_debugHostLastReceiveDt(-1.0f),
+m_debugClientReceivedWorldTotal(0),
+m_debugClientReceivedWorldPerSecond(0),
+m_debugClientReceivedWorldThisWindow(0),
+m_debugClientLastWorldStateTick(0),
+m_debugClientLastWorldReceiveDt(-1.0f)
 {
 	resetInputState();
 }
@@ -95,14 +103,12 @@ void MissionState::onEnter()
 	if(not m_hud.initialize("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load HUD font\n";
-		
 		return;
 	}
 	
 	if(not m_statusFont.loadFromFile("fonts/DejaVuSans.ttf"))
 	{
 		std::cerr << "Failed to load status font\n";
-		
 		return;
 	}
 	
@@ -111,7 +117,6 @@ void MissionState::onEnter()
 		if(not m_app.getNetHost().start(m_networkConfig.port))
 			std::cerr << "Failed to start host on port " << m_networkConfig.port << "\n";
 	}
-	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		if(m_app.getNetClient().connectTo(m_networkConfig.ipAddress, m_networkConfig.port))
@@ -121,7 +126,6 @@ void MissionState::onEnter()
 			else
 				std::cerr << "Failed to send join request\n";
 		}
-		
 		else
 			std::cerr << "Failed to connect client socket\n";
 	}
@@ -137,22 +141,19 @@ void MissionState::onEnter()
 	if(not loader.load("res/terrain/N34E062.hgt", rawData))
 	{
 		std::cerr << "Failed to load HGT file\n";
-		
 		return;
 	}
 	
 	if(not m_terrain.buildFromHGT(rawData.samples, rawData.width, rawData.height,
-									34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
+		34.0f, 62.0f, 34.5f, 62.5f, 12000.0f, 256))
 	{
 		std::cerr << "Failed to build terrain data\n";
-		
 		return;
 	}
 	
 	if(not m_renderer.create(m_terrain))
 	{
 		std::cerr << "Failed to create terrain renderer\n";
-		
 		return;
 	}
 	
@@ -166,6 +167,7 @@ void MissionState::onEnter()
 	m_verticalSpeed = 0.0f;
 	
 	initializeNetworkSlots();
+	resetNetworkDebugCounters();
 	
 	captureCurrentRenderState();
 	m_previousRenderState = m_currentRenderState;
@@ -185,7 +187,6 @@ void MissionState::onExit()
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
 		m_app.getNetHost().stop();
-	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 		m_app.getNetClient().disconnect();
 }
@@ -199,7 +200,6 @@ void MissionState::onEvent(Event& event)
 		{
 			m_app.stop();
 			event.stopPropagation();
-			
 			break;
 		}
 		
@@ -207,15 +207,15 @@ void MissionState::onEvent(Event& event)
 		{
 			const WindowResizedEvent& resizedEvent = static_cast<const WindowResizedEvent&>(event);
 			
-			glViewport(0, 0, static_cast<GLsizei>(resizedEvent.getWidth()),
+			glViewport(0, 0,
+					   static_cast<GLsizei>(resizedEvent.getWidth()),
 					   static_cast<GLsizei>(resizedEvent.getHeight()));
 			
 			float aspect = static_cast<float>(resizedEvent.getWidth()) /
-							static_cast<float>(resizedEvent.getHeight());
+			static_cast<float>(resizedEvent.getHeight());
 			
 			m_camera.setPerspective(75.0f, aspect, 0.3f, 100000.0f);
 			event.stopPropagation();
-			
 			break;
 		}
 		
@@ -225,7 +225,6 @@ void MissionState::onEvent(Event& event)
 			
 			if(keyEvent.getKey() == sf::Keyboard::Escape)
 			{
-				// tu później pause menu albo powrót do main menu
 				m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
 				event.stopPropagation();
 			}
@@ -242,14 +241,17 @@ void MissionState::onEvent(Event& event)
 void MissionState::update(float dt)
 {
 	if(m_networkConfig.mode == NetworkMode::Host)
+	{
 		updateHostNetworking(dt);
-	
+	}
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		JoinAcceptPacket acceptPacket{};
+		
 		if(m_app.getNetClient().pollJoinAccept(acceptPacket))
 		{
 			const std::int32_t slotIndex = m_app.getNetClient().getAssignedSlotIndex();
+			
 			if(slotIndex >= 0 && slotIndex < static_cast<std::int32_t>(m_slots.size()))
 			{
 				m_slots[slotIndex].occupancy = SlotOccupancy::Occupied;
@@ -264,7 +266,6 @@ void MissionState::update(float dt)
 	m_previousRenderState = m_currentRenderState;
 	
 	applyInputSnapshot();
-	
 	m_helicopter.update(dt, m_terrain);
 	
 	if(dt > 0.0001f)
@@ -273,6 +274,7 @@ void MissionState::update(float dt)
 	m_previousAltitude = m_helicopter.getY();
 	
 	captureCurrentRenderState();
+	updateNetworkDebugWindow(dt);
 	updateHud();
 }
 
@@ -312,33 +314,55 @@ void MissionState::updateHud()
 	m_hud.setSpeedMetersPerSecond(m_helicopter.getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
 	
-	#ifdef DEBUG
 	std::ostringstream oss;
-	#endif
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
 	{
 		const std::string& msg = m_app.getNetHost().getLastStatusMessage();
 		
-		#ifdef DEBUG
 		oss << (msg.empty() ? "Hosting session" : msg)
-			<< "\nRX input count: " << m_debugHostReceivedInputCount
-			<< "\nLast peerId: " << m_debugHostLastInputPeerId
-			<< "\nLast input tick: " << m_debugHostLastInputTick;
-		#else
-		m_statusText.setString(msg.empty() ? "Hosting session" : msg);
-		#endif	
+		<< "\nRX total: " << m_debugHostReceivedInputTotal
+		<< "\nRX/sec: " << m_debugHostReceivedInputPerSecond
+		<< "\nLast peerId: " << m_debugHostLastInputPeerId
+		<< "\nLast input tick: " << m_debugHostLastInputTick
+		<< "\nLast recv dt: ";
+		
+		if(m_debugHostLastReceiveDt < 0.0f)
+			oss << "n/a";
+		else
+			oss << m_debugHostLastReceiveDt;
 	}
-	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		const std::string& msg = m_app.getNetClient().getLastStatusMessage();
-		m_statusText.setString(msg.empty() ? "Connecting to host..." : msg);
+		
+		oss << (msg.empty() ? "Connecting to host..." : msg)
+		<< "\nAccepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no")
+		<< "\nMy slot: " << m_app.getNetClient().getAssignedSlotIndex()
+		<< "\nTX total: " << m_debugClientSentInputTotal
+		<< "\nTX/sec: " << m_debugClientSentInputPerSecond
+		<< "\nLast send dt: ";
+		
+		if(m_debugClientLastSendDt < 0.0f)
+			oss << "n/a";
+		else
+			oss << m_debugClientLastSendDt;
+		
+		oss << "\nWorld RX total: " << m_debugClientReceivedWorldTotal
+		<< "\nWorld RX/sec: " << m_debugClientReceivedWorldPerSecond
+		<< "\nLast world tick: " << m_debugClientLastWorldStateTick
+		<< "\nLast world recv dt: ";
+		
+		if(m_debugClientLastWorldReceiveDt < 0.0f)
+			oss << "n/a";
+		else
+			oss << m_debugClientLastWorldReceiveDt;
+	}
+	else
+	{
+		oss << "Local session";
 	}
 	
-	else
-		oss << "Local session";
-		
 	m_statusText.setString(oss.str());
 }
 
@@ -407,21 +431,12 @@ MissionState::RenderState MissionState::interpolateRenderState(float alpha) cons
 												   m_currentRenderState.helicopterRollDegrees, alpha);
 	
 	state.camX = lerp(m_previousRenderState.camX, m_currentRenderState.camX, alpha);
+	state.camY = lerp(m_previousRenderState.camY, m_currentRenderState.camY, alpha);
+	state.camZ = lerp(m_previousRenderState.camZ, m_currentRenderState.camZ, alpha);
 	
-	state.camY = lerp(m_previousRenderState.camY,
-					  m_currentRenderState.camY, alpha);
-	
-	state.camZ = lerp(m_previousRenderState.camZ,
-					  m_currentRenderState.camZ, alpha);
-	
-	state.targetX = lerp(m_previousRenderState.targetX,
-						 m_currentRenderState.targetX, alpha);
-	
-	state.targetY = lerp(m_previousRenderState.targetY,
-						 m_currentRenderState.targetY, alpha);
-	
-	state.targetZ = lerp(m_previousRenderState.targetZ,
-						 m_currentRenderState.targetZ, alpha);
+	state.targetX = lerp(m_previousRenderState.targetX, m_currentRenderState.targetX, alpha);
+	state.targetY = lerp(m_previousRenderState.targetY, m_currentRenderState.targetY, alpha);
+	state.targetZ = lerp(m_previousRenderState.targetZ, m_currentRenderState.targetZ, alpha);
 	
 	return state;
 }
@@ -453,15 +468,13 @@ void MissionState::initializeNetworkSlots()
 		slot = HelicopterSlot{};
 		slot.slotIndex = static_cast<std::uint8_t>(i);
 		slot.spawnPoint = NetSpawn::DefaultSpawnPoints[i];
-		
 		slot.helicopter.setPosition(slot.spawnPoint.x,
 									m_terrain.getHeightAtWorldPosition(slot.spawnPoint.x, slot.spawnPoint.z) + 5.0f,
 									slot.spawnPoint.z);
-		
 		slot.helicopter.setYawDegrees(slot.spawnPoint.yawDegrees);
 	}
 	
-	if(m_networkConfig.mode == NetworkMode::Host or m_networkConfig.mode == NetworkMode::Local)
+	if(m_networkConfig.mode == NetworkMode::Host || m_networkConfig.mode == NetworkMode::Local)
 	{
 		m_slots[0].occupancy = SlotOccupancy::Occupied;
 		m_slots[0].locallyControlled = true;
@@ -568,11 +581,11 @@ void MissionState::updateHostNetworking(float dt)
 	PlayerInputPacket inputPacket{};
 	while(m_app.getNetHost().pollPlayerInput(inputPacket))
 	{
-		#ifdef DEBUG
-		++m_debugHostReceivedInputCount;
+		++m_debugHostReceivedInputTotal;
+		++m_debugHostReceivedInputThisWindow;
 		m_debugHostLastInputPeerId = inputPacket.peerId;
 		m_debugHostLastInputTick = inputPacket.tick;
-		#endif
+		m_debugHostLastReceiveDt = 0.0f;
 		
 		for(HelicopterSlot& slot : m_slots)
 		{
@@ -617,16 +630,23 @@ void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 		if(slot.occupancy == SlotOccupancy::Empty)
 			continue;
 		
-		if(m_networkConfig.mode == NetworkMode::Client and
+		if(m_networkConfig.mode == NetworkMode::Client &&
 			static_cast<std::int32_t>(i) == localClientSlot)
 		{
 			continue;
 		}
 		
-		slot.helicopter.applyAuthoritativeState(in.x, in.y, in.z,
-												in.yawDegrees, in.pitchDegrees, in.rollDegrees,
-												in.speedMetersPerSecond, in.verticalSpeedMetersPerSecond,
-												in.altitudeAboveGroundMeters);
+		slot.helicopter.applyAuthoritativeState(
+			in.x,
+			in.y,
+			in.z,
+			in.yawDegrees,
+			in.pitchDegrees,
+			in.rollDegrees,
+			in.speedMetersPerSecond,
+			in.verticalSpeedMetersPerSecond,
+			in.altitudeAboveGroundMeters
+		);
 	}
 }
 
@@ -636,7 +656,6 @@ void MissionState::updateClientNetworking()
 	if(m_app.getNetClient().isAccepted())
 	{
 		PlayerInputPacket packet{};
-		
 		packet.peerId = m_app.getNetClient().getAssignedPeerId();
 		packet.tick = static_cast<std::uint32_t>(m_inputSnapshot.tick);
 		packet.collective = m_inputSnapshot.collective;
@@ -648,11 +667,74 @@ void MissionState::updateClientNetworking()
 		packet.launchMissile = m_inputSnapshot.launchMissile ? 1 : 0;
 		packet.pauseRequested = m_inputSnapshot.pauseRequested ? 1 : 0;
 		
-		m_app.getNetClient().sendPlayerInput(packet);
+		if(m_app.getNetClient().sendPlayerInput(packet))
+		{
+			++m_debugClientSentInputTotal;
+			++m_debugClientSentInputThisWindow;
+			m_debugClientLastSendDt = 0.0f;
+		}
 	}
 	
 	WorldStatePacket worldPacket{};
-	
 	while(m_app.getNetClient().pollWorldState(worldPacket))
+	{
+		++m_debugClientReceivedWorldTotal;
+		++m_debugClientReceivedWorldThisWindow;
+		m_debugClientLastWorldStateTick = worldPacket.serverTick;
+		m_debugClientLastWorldReceiveDt = 0.0f;
+		
 		applyWorldStatePacket(worldPacket);
+	}
+}
+
+
+void MissionState::updateNetworkDebugWindow(float dt)
+{
+	m_debugNetAccumSeconds += dt;
+	
+	if(m_debugClientLastSendDt >= 0.0f)
+		m_debugClientLastSendDt += dt;
+	
+	if(m_debugHostLastReceiveDt >= 0.0f)
+		m_debugHostLastReceiveDt += dt;
+	
+	if(m_debugClientLastWorldReceiveDt >= 0.0f)
+		m_debugClientLastWorldReceiveDt += dt;
+	
+	if(m_debugNetAccumSeconds >= 1.0f)
+	{
+		m_debugClientSentInputPerSecond = m_debugClientSentInputThisWindow;
+		m_debugHostReceivedInputPerSecond = m_debugHostReceivedInputThisWindow;
+		m_debugClientReceivedWorldPerSecond = m_debugClientReceivedWorldThisWindow;
+		
+		m_debugClientSentInputThisWindow = 0;
+		m_debugHostReceivedInputThisWindow = 0;
+		m_debugClientReceivedWorldThisWindow = 0;
+		
+		m_debugNetAccumSeconds -= 1.0f;
+	}
+}
+
+
+void MissionState::resetNetworkDebugCounters()
+{
+	m_debugNetAccumSeconds = 0.0f;
+	
+	m_debugClientSentInputTotal = 0;
+	m_debugClientSentInputPerSecond = 0;
+	m_debugClientSentInputThisWindow = 0;
+	m_debugClientLastSendDt = -1.0f;
+	
+	m_debugHostReceivedInputTotal = 0;
+	m_debugHostReceivedInputPerSecond = 0;
+	m_debugHostReceivedInputThisWindow = 0;
+	m_debugHostLastInputPeerId = 0;
+	m_debugHostLastInputTick = 0;
+	m_debugHostLastReceiveDt = -1.0f;
+	
+	m_debugClientReceivedWorldTotal = 0;
+	m_debugClientReceivedWorldPerSecond = 0;
+	m_debugClientReceivedWorldThisWindow = 0;
+	m_debugClientLastWorldStateTick = 0;
+	m_debugClientLastWorldReceiveDt = -1.0f;
 }

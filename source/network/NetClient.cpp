@@ -9,14 +9,14 @@
 
 
 NetClient::NetClient():
-	m_socket(),
-	m_hostAddress(sf::IpAddress::None),
-	m_hostPort(0),
-	m_assignedPeerId(0),
-	m_assignedSlotIndex(NetGame::InvalidSlotIndex),
-	m_lastStatusMessage(),
-	m_connected(false),
-	m_accepted(false)
+m_socket(),
+m_hostAddress(sf::IpAddress::None),
+m_hostPort(0),
+m_assignedPeerId(0),
+m_assignedSlotIndex(NetGame::InvalidSlotIndex),
+m_lastStatusMessage(),
+m_connected(false),
+m_accepted(false)
 {
 	// empty
 }
@@ -24,6 +24,8 @@ NetClient::NetClient():
 
 bool NetClient::connectTo(const sf::IpAddress& host, std::uint16_t port)
 {
+	m_socket.unbind();
+	
 	if(m_socket.bind(sf::Socket::AnyPort) != sf::Socket::Done)
 		return false;
 	
@@ -44,6 +46,8 @@ bool NetClient::connectTo(const sf::IpAddress& host, std::uint16_t port)
 void NetClient::disconnect()
 {
 	m_socket.unbind();
+	m_hostAddress = sf::IpAddress::None;
+	m_hostPort = 0;
 	m_connected = false;
 	m_accepted = false;
 	m_assignedPeerId = 0;
@@ -98,7 +102,6 @@ bool NetClient::pollJoinAccept(JoinAcceptPacket& outPacket)
 		m_accepted = true;
 		m_assignedPeerId = packet.assignedPeerId;
 		m_assignedSlotIndex = packet.assignedSlotIndex;
-		
 		m_lastStatusMessage = "Connected to host";
 	}
 	
@@ -108,7 +111,7 @@ bool NetClient::pollJoinAccept(JoinAcceptPacket& outPacket)
 
 bool NetClient::sendPlayerInput(const PlayerInputPacket& packet)
 {
-	if(not m_connected or not m_accepted)
+	if(not m_connected || not m_accepted)
 		return false;
 	
 	return m_socket.send(&packet, sizeof(packet), m_hostAddress, m_hostPort) == sf::Socket::Done;

@@ -6,6 +6,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <core/IState.hpp>
 #include <core/InputSnapshot.hpp>
 #include <camera/Camera.hpp>
@@ -15,8 +16,8 @@
 #include <terrain/HGTLoader.hpp>
 #include <terrain/TerrainData.hpp>
 #include <terrain/TerrainRenderer.hpp>
-#include <network/NetworkConfig.hpp>
 #include <network/HelicopterSlot.hpp>
+#include <network/NetworkConfig.hpp>
 #include <network/NetworkPackets.hpp>
 
 
@@ -71,6 +72,9 @@ private:
 	void fillWorldStatePacket(WorldStatePacket& packet) const;
 	void applyWorldStatePacket(const WorldStatePacket& packet);
 	
+	void updateNetworkDebugWindow(float dt);
+	void resetNetworkDebugCounters();
+	
 	App& m_app;
 	
 	HUD m_hud;
@@ -98,12 +102,23 @@ private:
 	WorldStatePacket m_lastWorldState;
 	bool m_hasWorldState;
 	
-	#ifdef DEBUG
-	// members for debug
-	std::uint32_t m_debugHostReceivedInputCount;
+	float m_debugNetAccumSeconds;
+	
+	std::uint32_t m_debugClientSentInputTotal;
+	std::uint32_t m_debugClientSentInputPerSecond;
+	std::uint32_t m_debugClientSentInputThisWindow;
+	float m_debugClientLastSendDt;
+	
+	std::uint32_t m_debugHostReceivedInputTotal;
+	std::uint32_t m_debugHostReceivedInputPerSecond;
+	std::uint32_t m_debugHostReceivedInputThisWindow;
 	std::uint32_t m_debugHostLastInputPeerId;
 	std::uint32_t m_debugHostLastInputTick;
-	std::uint32_t m_debugClientWorldStateCount;
+	float m_debugHostLastReceiveDt;
+	
+	std::uint32_t m_debugClientReceivedWorldTotal;
+	std::uint32_t m_debugClientReceivedWorldPerSecond;
+	std::uint32_t m_debugClientReceivedWorldThisWindow;
 	std::uint32_t m_debugClientLastWorldStateTick;
-	#endif
+	float m_debugClientLastWorldReceiveDt;
 };
