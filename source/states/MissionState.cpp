@@ -81,6 +81,7 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_slots{},
 	m_lastWorldState{},
 	m_hasWorldState(false),
+	m_lastAcceptedWorldStateTick(0),
 	m_showDebugOverlay(true),
 	m_freezeDebugOverlay(false),
 	m_snapshotMode(false),
@@ -103,6 +104,8 @@ MissionState::MissionState(StateManager& manager, App& app):
 	m_debugClientReceivedWorldTotal(0),
 	m_debugClientReceivedWorldPerSecond(0),
 	m_debugClientReceivedWorldThisWindow(0),
+	m_debugClientDroppedStaleWorldTotal(0),
+	m_debugClientDroppedStaleWorldThisWindow(0),
 	m_debugClientLastWorldStateTick(0),
 	m_debugClientLastWorldReceiveDt(-1.0f),
 	m_debugClientMaxWorldReceiveDtInWindow(0.0f)
@@ -134,6 +137,8 @@ void MissionState::onEnter()
 	initializeScene();
 	initializeNetworkSlots();
 	resetNetworkDebugCounters();
+	
+	m_lastAcceptedWorldStateTick = 0;
 	
 	captureCurrentRenderState();
 	m_previousRenderState = m_currentRenderState;
@@ -514,21 +519,22 @@ void MissionState::appendClientDebugText(std::ostringstream& oss) const
 	oss << "mode: CLIENT\n"
 		<< "status: " << (msg.empty() ? "Connecting to host..." : msg) << "\n"
 		<< "accepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no") << "\n"
-		<< "slot    : " << m_app.getNetClient().getAssignedSlotIndex() << "\n\n"
+		<< "slot : " << m_app.getNetClient().getAssignedSlotIndex() << "\n\n"
 		<< "input TX total : " << m_debugClientSentInputTotal << "\n"
-		<< "input TX/sec   : " << m_debugClientSentInputPerSecond << "\n"
-		<< "last send dt   : ";
+		<< "input TX/sec : " << m_debugClientSentInputPerSecond << "\n"
+		<< "last send dt : ";
 	
 	if(m_debugClientLastSendDt < 0.0f)
 		oss << "n/a";
 	else
 		oss << toMilliseconds(m_debugClientLastSendDt) << " ms";
 	
-	oss << "\nmax send dt    : " << toMilliseconds(m_debugClientMaxSendDtInWindow) << " ms"
+	oss << "\nmax send dt : " << toMilliseconds(m_debugClientMaxSendDtInWindow) << " ms"
 		<< "\n\nworld RX total : " << m_debugClientReceivedWorldTotal
-		<< "\nworld RX/sec   : " << m_debugClientReceivedWorldPerSecond
+		<< "\nworld RX/sec : " << m_debugClientReceivedWorldPerSecond
+		<< "\nstale dropped : " << m_debugClientDroppedStaleWorldTotal
 		<< "\nlast world tick: " << m_debugClientLastWorldStateTick
-		<< "\nlast world dt  : ";
+		<< "\nlast world dt : ";
 	
 	if(m_debugClientLastWorldReceiveDt < 0.0f)
 		oss << "n/a";
@@ -810,10 +816,19 @@ void MissionState::updateHostNetworking(float dt)
 }
 
 
-void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
+bool MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 {
+	if(m_hasWorldState and packet.serverTick < m_lastAcceptedWorldStateTick)
+	{
+		++m_debugClientDroppedStaleWorldTotal;
+		++m_debugClientDroppedStaleWorldThisWindow;
+		
+		return false;
+	}
+	
 	m_lastWorldState = packet;
 	m_hasWorldState = true;
+	m_lastAcceptedWorldStateTick = packet.serverTick;
 	
 	const std::int32_t localClientSlot = m_app.getNetClient().getAssignedSlotIndex();
 	
@@ -836,18 +851,13 @@ void MissionState::applyWorldStatePacket(const WorldStatePacket& packet)
 			continue;
 		}
 		
-		slot.helicopter.applyAuthoritativeState(
-			in.x,
-			in.y,
-			in.z,
-			in.yawDegrees,
-			in.pitchDegrees,
-			in.rollDegrees,
-			in.speedMetersPerSecond,
-			in.verticalSpeedMetersPerSecond,
-			in.altitudeAboveGroundMeters
-		);
+		slot.helicopter.applyAuthoritativeState(in.x, in.y, in.z, in.yawDegrees, in.pitchDegrees,
+												in.rollDegrees, in.speedMetersPerSecond,
+												in.verticalSpeedMetersPerSecond,
+												in.altitudeAboveGroundMeters);
 	}
+	
+	return true;
 }
 
 
@@ -874,16 +884,18 @@ void MissionState::updateClientNetworking()
 			m_debugClientLastSendDt = 0.0f;
 		}
 	}
-	
+
 	WorldStatePacket worldPacket{};
 	while(m_app.getNetClient().pollWorldState(worldPacket))
 	{
-		++m_debugClientReceivedWorldTotal;
-		++m_debugClientReceivedWorldThisWindow;
-		m_debugClientLastWorldStateTick = worldPacket.serverTick;
 		m_debugClientLastWorldReceiveDt = 0.0f;
 		
-		applyWorldStatePacket(worldPacket);
+		if(applyWorldStatePacket(worldPacket))
+		{
+			++m_debugClientReceivedWorldTotal;
+			++m_debugClientReceivedWorldThisWindow;
+			m_debugClientLastWorldStateTick = worldPacket.serverTick;
+		}
 	}
 }
 
@@ -955,10 +967,12 @@ void MissionState::resetNetworkDebugCounters()
 	m_debugHostLastInputTick = 0;
 	m_debugHostLastReceiveDt = -1.0f;
 	m_debugHostMaxReceiveDtInWindow = 0.0f;
-	
+
 	m_debugClientReceivedWorldTotal = 0;
 	m_debugClientReceivedWorldPerSecond = 0;
 	m_debugClientReceivedWorldThisWindow = 0;
+	m_debugClientDroppedStaleWorldTotal = 0;
+	m_debugClientDroppedStaleWorldThisWindow = 0;
 	m_debugClientLastWorldStateTick = 0;
 	m_debugClientLastWorldReceiveDt = -1.0f;
 	m_debugClientMaxWorldReceiveDtInWindow = 0.0f;

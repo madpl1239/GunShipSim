@@ -94,7 +94,7 @@ private:
 	void applyRemoteInputToSlot(HelicopterSlot& slot, const PlayerInputPacket& packet);
 	void updateSlotHelicopter(HelicopterSlot& slot, float dt);
 	void fillWorldStatePacket(WorldStatePacket& packet) const;
-	void applyWorldStatePacket(const WorldStatePacket& packet);
+	bool applyWorldStatePacket(const WorldStatePacket& packet);
 	void resetNetworkDebugCounters();
 	
 	App& m_app;
@@ -124,6 +124,7 @@ private:
 	std::array<HelicopterSlot, NetGame::MaxPlayers> m_slots;
 	WorldStatePacket m_lastWorldState;
 	bool m_hasWorldState;
+	std::uint32_t m_lastAcceptedWorldStateTick;
 	
 	bool m_showDebugOverlay;
 	bool m_freezeDebugOverlay;
@@ -151,6 +152,8 @@ private:
 	std::uint32_t m_debugClientReceivedWorldTotal;
 	std::uint32_t m_debugClientReceivedWorldPerSecond;
 	std::uint32_t m_debugClientReceivedWorldThisWindow;
+	std::uint32_t m_debugClientDroppedStaleWorldTotal;
+	std::uint32_t m_debugClientDroppedStaleWorldThisWindow;
 	std::uint32_t m_debugClientLastWorldStateTick;
 	float m_debugClientLastWorldReceiveDt;
 	float m_debugClientMaxWorldReceiveDtInWindow;
