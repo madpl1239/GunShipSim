@@ -22,7 +22,6 @@
 #include <network/NetworkConfig.hpp>
 #include <network/NetworkPackets.hpp>
 
-
 class App;
 
 
@@ -60,9 +59,30 @@ private:
 		float targetZ;
 	};
 	
+	void initializeUi();
+	bool initializeTerrainAndRenderer();
+	void initializeScene();
+	void initializeGraphicsState();
+	
+	void handleWindowResizeEvent(const Event& event);
+	void handleKeyPressedEvent(Event& event);
+	
+	void updateNetworking(float dt);
+	void updateClientJoinAccept();
+	void updateLocalSimulation(float dt);
 	void updateHud();
+	void updateNetworkDebugWindow(float dt);
+	
+	void renderHud();
+	void renderDebugOverlay();
+	
 	void refreshDebugText();
 	void captureDebugSnapshot();
+	std::string buildDebugText() const;
+	void appendHostDebugText(std::ostringstream& oss) const;
+	void appendClientDebugText(std::ostringstream& oss) const;
+	void appendLocalDebugText(std::ostringstream& oss) const;
+	
 	void captureCurrentRenderState();
 	RenderState interpolateRenderState(float alpha) const;
 	void resetInputState();
@@ -75,8 +95,6 @@ private:
 	void updateSlotHelicopter(HelicopterSlot& slot, float dt);
 	void fillWorldStatePacket(WorldStatePacket& packet) const;
 	void applyWorldStatePacket(const WorldStatePacket& packet);
-	
-	void updateNetworkDebugWindow(float dt);
 	void resetNetworkDebugCounters();
 	
 	App& m_app;
