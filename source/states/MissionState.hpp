@@ -7,6 +7,8 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
+#include <SFML/Graphics/RectangleShape.hpp>
 #include <core/IState.hpp>
 #include <core/InputSnapshot.hpp>
 #include <camera/Camera.hpp>
@@ -59,6 +61,8 @@ private:
 	};
 	
 	void updateHud();
+	void refreshDebugText();
+	void captureDebugSnapshot();
 	void captureCurrentRenderState();
 	RenderState interpolateRenderState(float alpha) const;
 	void resetInputState();
@@ -88,6 +92,7 @@ private:
 	
 	sf::Font m_statusFont;
 	sf::Text m_statusText;
+	sf::RectangleShape m_statusBackground;
 	
 	float m_previousAltitude;
 	float m_verticalSpeed;
@@ -102,12 +107,20 @@ private:
 	WorldStatePacket m_lastWorldState;
 	bool m_hasWorldState;
 	
+	bool m_showDebugOverlay;
+	bool m_freezeDebugOverlay;
+	bool m_snapshotMode;
+	float m_debugTextRefreshAccum;
+	float m_debugTextRefreshInterval;
+	std::string m_frozenDebugText;
+	
 	float m_debugNetAccumSeconds;
 	
 	std::uint32_t m_debugClientSentInputTotal;
 	std::uint32_t m_debugClientSentInputPerSecond;
 	std::uint32_t m_debugClientSentInputThisWindow;
 	float m_debugClientLastSendDt;
+	float m_debugClientMaxSendDtInWindow;
 	
 	std::uint32_t m_debugHostReceivedInputTotal;
 	std::uint32_t m_debugHostReceivedInputPerSecond;
@@ -115,10 +128,12 @@ private:
 	std::uint32_t m_debugHostLastInputPeerId;
 	std::uint32_t m_debugHostLastInputTick;
 	float m_debugHostLastReceiveDt;
+	float m_debugHostMaxReceiveDtInWindow;
 	
 	std::uint32_t m_debugClientReceivedWorldTotal;
 	std::uint32_t m_debugClientReceivedWorldPerSecond;
 	std::uint32_t m_debugClientReceivedWorldThisWindow;
 	std::uint32_t m_debugClientLastWorldStateTick;
 	float m_debugClientLastWorldReceiveDt;
+	float m_debugClientMaxWorldReceiveDtInWindow;
 };

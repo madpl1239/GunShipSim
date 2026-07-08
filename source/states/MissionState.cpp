@@ -4,9 +4,11 @@
  * 05-07-2026 by madpl
  */
 #include <GL/glew.h>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <cmath>
+#include <algorithm>
 #include <states/MissionState.hpp>
 #include <core/App.hpp>
 #include <core/Event.hpp>
@@ -48,6 +50,11 @@ namespace
 		
 		return normalizeAngleDegrees(fromDegrees + delta * alpha);
 	}
+	
+	float toMilliseconds(float seconds)
+	{
+		return seconds * 1000.0f;
+	}
 }
 
 
@@ -62,6 +69,9 @@ m_camera(),
 m_inputState{},
 m_inputSnapshot{},
 m_networkConfig(app.getNetworkConfig()),
+m_statusFont(),
+m_statusText(),
+m_statusBackground(),
 m_previousAltitude(0.0f),
 m_verticalSpeed(0.0f),
 m_previousRenderState{},
@@ -71,22 +81,31 @@ m_nextPeerId(1),
 m_slots{},
 m_lastWorldState{},
 m_hasWorldState(false),
+m_showDebugOverlay(true),
+m_freezeDebugOverlay(false),
+m_snapshotMode(false),
+m_debugTextRefreshAccum(0.0f),
+m_debugTextRefreshInterval(0.25f),
+m_frozenDebugText(),
 m_debugNetAccumSeconds(0.0f),
 m_debugClientSentInputTotal(0),
 m_debugClientSentInputPerSecond(0),
 m_debugClientSentInputThisWindow(0),
 m_debugClientLastSendDt(-1.0f),
+m_debugClientMaxSendDtInWindow(0.0f),
 m_debugHostReceivedInputTotal(0),
 m_debugHostReceivedInputPerSecond(0),
 m_debugHostReceivedInputThisWindow(0),
 m_debugHostLastInputPeerId(0),
 m_debugHostLastInputTick(0),
 m_debugHostLastReceiveDt(-1.0f),
+m_debugHostMaxReceiveDtInWindow(0.0f),
 m_debugClientReceivedWorldTotal(0),
 m_debugClientReceivedWorldPerSecond(0),
 m_debugClientReceivedWorldThisWindow(0),
 m_debugClientLastWorldStateTick(0),
-m_debugClientLastWorldReceiveDt(-1.0f)
+m_debugClientLastWorldReceiveDt(-1.0f),
+m_debugClientMaxWorldReceiveDtInWindow(0.0f)
 {
 	resetInputState();
 }
@@ -131,9 +150,15 @@ void MissionState::onEnter()
 	}
 	
 	m_statusText.setFont(m_statusFont);
-	m_statusText.setCharacterSize(18);
+	m_statusText.setCharacterSize(20);
 	m_statusText.setFillColor(sf::Color::White);
-	m_statusText.setPosition(12.0f, 12.0f);
+	m_statusText.setPosition(20.0f, 18.0f);
+	
+	m_statusBackground.setPosition(10.0f, 10.0f);
+	m_statusBackground.setSize(sf::Vector2f(560.0f, 300.0f));
+	m_statusBackground.setFillColor(sf::Color(0, 0, 0, 170));
+	m_statusBackground.setOutlineThickness(1.0f);
+	m_statusBackground.setOutlineColor(sf::Color(120, 120, 120, 220));
 	
 	HGTLoader loader;
 	HGTLoader::Data rawData;
@@ -177,6 +202,7 @@ void MissionState::onEnter()
 	glClearDepth(1.0f);
 	glClearColor(0.60f, 0.75f, 0.95f, 1.0f);
 	
+	refreshDebugText();
 	updateHud();
 }
 
@@ -228,6 +254,28 @@ void MissionState::onEvent(Event& event)
 				m_manager.replaceState(std::make_unique<MainMenuState>(m_manager, m_app));
 				event.stopPropagation();
 			}
+			else if(keyEvent.getKey() == sf::Keyboard::F3)
+			{
+				m_showDebugOverlay = not m_showDebugOverlay;
+				event.stopPropagation();
+			}
+			else if(keyEvent.getKey() == sf::Keyboard::F4)
+			{
+				m_freezeDebugOverlay = not m_freezeDebugOverlay;
+				if(m_freezeDebugOverlay)
+				{
+					m_snapshotMode = false;
+					captureDebugSnapshot();
+				}
+				event.stopPropagation();
+			}
+			else if(keyEvent.getKey() == sf::Keyboard::F5)
+			{
+				m_snapshotMode = true;
+				m_freezeDebugOverlay = false;
+				captureDebugSnapshot();
+				event.stopPropagation();
+			}
 			
 			break;
 		}
@@ -244,8 +292,11 @@ void MissionState::update(float dt)
 	{
 		updateHostNetworking(dt);
 	}
+	
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
+		m_app.getNetClient().pumpIncomingPackets();
+		
 		JoinAcceptPacket acceptPacket{};
 		
 		if(m_app.getNetClient().pollJoinAccept(acceptPacket))
@@ -295,7 +346,13 @@ void MissionState::render(float alpha)
 	
 	m_app.getWindow().pushGLStates();
 	m_hud.draw(m_app.getWindow());
-	m_app.getWindow().draw(m_statusText);
+	
+	if(m_showDebugOverlay)
+	{
+		m_app.getWindow().draw(m_statusBackground);
+		m_app.getWindow().draw(m_statusText);
+	}
+	
 	m_app.getWindow().popGLStates();
 }
 
@@ -313,57 +370,98 @@ void MissionState::updateHud()
 	m_hud.setAltitudeAboveGroundMeters(m_helicopter.getAltitudeAboveGround());
 	m_hud.setSpeedMetersPerSecond(m_helicopter.getSpeed());
 	m_hud.setVerticalSpeedMetersPerSecond(m_verticalSpeed);
-	
+}
+
+
+void MissionState::captureDebugSnapshot()
+{
+	refreshDebugText();
+	m_frozenDebugText = m_statusText.getString();
+}
+
+
+void MissionState::refreshDebugText()
+{
 	std::ostringstream oss;
+	oss << std::fixed << std::setprecision(1);
+	
+	if(m_freezeDebugOverlay)
+		oss << "[F3] show/hide  [F4] unfreeze  [F5] snapshot\nstate: FROZEN\n";
+	else if(m_snapshotMode)
+		oss << "[F3] show/hide  [F4] freeze live  [F5] snapshot\nstate: SNAPSHOT\n";
+	else
+		oss << "[F3] show/hide  [F4] freeze live  [F5] snapshot\nstate: LIVE\n";
 	
 	if(m_networkConfig.mode == NetworkMode::Host)
 	{
 		const std::string& msg = m_app.getNetHost().getLastStatusMessage();
 		
-		oss << (msg.empty() ? "Hosting session" : msg)
-		<< "\nRX total: " << m_debugHostReceivedInputTotal
-		<< "\nRX/sec: " << m_debugHostReceivedInputPerSecond
-		<< "\nLast peerId: " << m_debugHostLastInputPeerId
-		<< "\nLast input tick: " << m_debugHostLastInputTick
-		<< "\nLast recv dt: ";
+		oss << "mode: HOST\n"
+		<< "status: " << (msg.empty() ? "Hosting session" : msg) << "\n\n"
+		<< "input RX total: " << m_debugHostReceivedInputTotal << "\n"
+		<< "input RX/sec : " << m_debugHostReceivedInputPerSecond << "\n"
+		<< "last peerId  : " << m_debugHostLastInputPeerId << "\n"
+		<< "last tick    : " << m_debugHostLastInputTick << "\n"
+		<< "last recv dt : ";
 		
 		if(m_debugHostLastReceiveDt < 0.0f)
 			oss << "n/a";
 		else
-			oss << m_debugHostLastReceiveDt;
+			oss << toMilliseconds(m_debugHostLastReceiveDt) << " ms";
+		
+		oss << "\nmax recv dt  : " << toMilliseconds(m_debugHostMaxReceiveDtInWindow) << " ms";
 	}
 	else if(m_networkConfig.mode == NetworkMode::Client)
 	{
 		const std::string& msg = m_app.getNetClient().getLastStatusMessage();
 		
-		oss << (msg.empty() ? "Connecting to host..." : msg)
-		<< "\nAccepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no")
-		<< "\nMy slot: " << m_app.getNetClient().getAssignedSlotIndex()
-		<< "\nTX total: " << m_debugClientSentInputTotal
-		<< "\nTX/sec: " << m_debugClientSentInputPerSecond
-		<< "\nLast send dt: ";
+		oss << "mode: CLIENT\n"
+		<< "status: " << (msg.empty() ? "Connecting to host..." : msg) << "\n"
+		<< "accepted: " << (m_app.getNetClient().isAccepted() ? "yes" : "no") << "\n"
+		<< "slot    : " << m_app.getNetClient().getAssignedSlotIndex() << "\n\n"
+		<< "input TX total : " << m_debugClientSentInputTotal << "\n"
+		<< "input TX/sec   : " << m_debugClientSentInputPerSecond << "\n"
+		<< "last send dt   : ";
 		
 		if(m_debugClientLastSendDt < 0.0f)
 			oss << "n/a";
 		else
-			oss << m_debugClientLastSendDt;
+			oss << toMilliseconds(m_debugClientLastSendDt) << " ms";
 		
-		oss << "\nWorld RX total: " << m_debugClientReceivedWorldTotal
-		<< "\nWorld RX/sec: " << m_debugClientReceivedWorldPerSecond
-		<< "\nLast world tick: " << m_debugClientLastWorldStateTick
-		<< "\nLast world recv dt: ";
+		oss << "\nmax send dt    : " << toMilliseconds(m_debugClientMaxSendDtInWindow) << " ms"
+		<< "\n\nworld RX total : " << m_debugClientReceivedWorldTotal
+		<< "\nworld RX/sec   : " << m_debugClientReceivedWorldPerSecond
+		<< "\nlast world tick: " << m_debugClientLastWorldStateTick
+		<< "\nlast world dt  : ";
 		
 		if(m_debugClientLastWorldReceiveDt < 0.0f)
 			oss << "n/a";
 		else
-			oss << m_debugClientLastWorldReceiveDt;
+			oss << toMilliseconds(m_debugClientLastWorldReceiveDt) << " ms";
+		
+		oss << "\nmax world dt   : " << toMilliseconds(m_debugClientMaxWorldReceiveDtInWindow) << " ms";
 	}
 	else
 	{
-		oss << "Local session";
+		oss << "mode: LOCAL\nstatus: local session";
 	}
 	
-	m_statusText.setString(oss.str());
+	const std::string liveText = oss.str();
+	
+	if(m_freezeDebugOverlay || m_snapshotMode)
+	{
+		if(not m_frozenDebugText.empty())
+			m_statusText.setString(m_frozenDebugText);
+		else
+			m_statusText.setString(liveText);
+	}
+	else
+	{
+		m_statusText.setString(liveText);
+	}
+	
+	const sf::FloatRect bounds = m_statusText.getLocalBounds();
+	m_statusBackground.setSize(sf::Vector2f(bounds.width + 32.0f, bounds.height + 28.0f));
 }
 
 
@@ -468,9 +566,11 @@ void MissionState::initializeNetworkSlots()
 		slot = HelicopterSlot{};
 		slot.slotIndex = static_cast<std::uint8_t>(i);
 		slot.spawnPoint = NetSpawn::DefaultSpawnPoints[i];
+		
 		slot.helicopter.setPosition(slot.spawnPoint.x,
 									m_terrain.getHeightAtWorldPosition(slot.spawnPoint.x, slot.spawnPoint.z) + 5.0f,
 									slot.spawnPoint.z);
+		
 		slot.helicopter.setYawDegrees(slot.spawnPoint.yawDegrees);
 	}
 	
@@ -556,6 +656,8 @@ void MissionState::updateHostNetworking(float dt)
 {
 	sf::IpAddress joinAddress;
 	std::uint16_t joinPort = 0;
+	
+	m_app.getNetHost().pumpIncomingPackets();
 	
 	if(m_app.getNetHost().pollJoinRequest(joinAddress, joinPort))
 	{
@@ -690,16 +792,32 @@ void MissionState::updateClientNetworking()
 
 void MissionState::updateNetworkDebugWindow(float dt)
 {
-	m_debugNetAccumSeconds += dt;
-	
 	if(m_debugClientLastSendDt >= 0.0f)
+	{
 		m_debugClientLastSendDt += dt;
+		m_debugClientMaxSendDtInWindow = std::max(m_debugClientMaxSendDtInWindow, m_debugClientLastSendDt);
+	}
 	
 	if(m_debugHostLastReceiveDt >= 0.0f)
+	{
 		m_debugHostLastReceiveDt += dt;
+		m_debugHostMaxReceiveDtInWindow = std::max(m_debugHostMaxReceiveDtInWindow, m_debugHostLastReceiveDt);
+	}
 	
 	if(m_debugClientLastWorldReceiveDt >= 0.0f)
+	{
 		m_debugClientLastWorldReceiveDt += dt;
+		m_debugClientMaxWorldReceiveDtInWindow = std::max(m_debugClientMaxWorldReceiveDtInWindow, m_debugClientLastWorldReceiveDt);
+	}
+	
+	m_debugNetAccumSeconds += dt;
+	m_debugTextRefreshAccum += dt;
+	
+	if(not m_freezeDebugOverlay && not m_snapshotMode && m_debugTextRefreshAccum >= m_debugTextRefreshInterval)
+	{
+		refreshDebugText();
+		m_debugTextRefreshAccum = 0.0f;
+	}
 	
 	if(m_debugNetAccumSeconds >= 1.0f)
 	{
@@ -711,6 +829,10 @@ void MissionState::updateNetworkDebugWindow(float dt)
 		m_debugHostReceivedInputThisWindow = 0;
 		m_debugClientReceivedWorldThisWindow = 0;
 		
+		m_debugClientMaxSendDtInWindow = 0.0f;
+		m_debugHostMaxReceiveDtInWindow = 0.0f;
+		m_debugClientMaxWorldReceiveDtInWindow = 0.0f;
+		
 		m_debugNetAccumSeconds -= 1.0f;
 	}
 }
@@ -718,12 +840,15 @@ void MissionState::updateNetworkDebugWindow(float dt)
 
 void MissionState::resetNetworkDebugCounters()
 {
+	m_debugTextRefreshAccum = 0.0f;
 	m_debugNetAccumSeconds = 0.0f;
+	m_frozenDebugText.clear();
 	
 	m_debugClientSentInputTotal = 0;
 	m_debugClientSentInputPerSecond = 0;
 	m_debugClientSentInputThisWindow = 0;
 	m_debugClientLastSendDt = -1.0f;
+	m_debugClientMaxSendDtInWindow = 0.0f;
 	
 	m_debugHostReceivedInputTotal = 0;
 	m_debugHostReceivedInputPerSecond = 0;
@@ -731,10 +856,12 @@ void MissionState::resetNetworkDebugCounters()
 	m_debugHostLastInputPeerId = 0;
 	m_debugHostLastInputTick = 0;
 	m_debugHostLastReceiveDt = -1.0f;
+	m_debugHostMaxReceiveDtInWindow = 0.0f;
 	
 	m_debugClientReceivedWorldTotal = 0;
 	m_debugClientReceivedWorldPerSecond = 0;
 	m_debugClientReceivedWorldThisWindow = 0;
 	m_debugClientLastWorldStateTick = 0;
 	m_debugClientLastWorldReceiveDt = -1.0f;
+	m_debugClientMaxWorldReceiveDtInWindow = 0.0f;
 }

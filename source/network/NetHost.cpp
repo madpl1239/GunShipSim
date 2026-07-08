@@ -9,9 +9,11 @@
 
 
 NetHost::NetHost():
-	m_socket(),
-	m_lastStatusMessage(),
-	m_peers{}
+m_socket(),
+m_lastStatusMessage(),
+m_peers{},
+m_pendingJoinRequests{},
+m_pendingPlayerInputs{}
 {
 	// no-op
 }
@@ -20,6 +22,10 @@ NetHost::NetHost():
 bool NetHost::start(std::uint16_t port)
 {
 	m_lastStatusMessage.clear();
+	m_pendingJoinRequests.clear();
+	m_pendingPlayerInputs.clear();
+	
+	m_socket.unbind();
 	
 	if(m_socket.bind(port) != sf::Socket::Done)
 		return false;
@@ -36,6 +42,8 @@ bool NetHost::start(std::uint16_t port)
 void NetHost::stop()
 {
 	m_lastStatusMessage.clear();
+	m_pendingJoinRequests.clear();
+	m_pendingPlayerInputs.clear();
 	
 	m_socket.unbind();
 	
@@ -44,33 +52,74 @@ void NetHost::stop()
 }
 
 
+void NetHost::pumpIncomingPackets()
+{
+	for(;;)
+	{
+		std::uint8_t buffer[2048];
+		std::size_t received = 0;
+		sf::IpAddress sender;
+		unsigned short senderPort = 0;
+		
+		const sf::Socket::Status status =
+		m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
+		
+		if(status == sf::Socket::NotReady)
+			break;
+		
+		if(status != sf::Socket::Done)
+			break;
+		
+		if(received < sizeof(PacketHeader))
+			continue;
+		
+		PacketHeader header{};
+		std::memcpy(&header, buffer, sizeof(PacketHeader));
+		
+		if(header.protocolVersion != NetGame::ProtocolVersion)
+			continue;
+		
+		switch(header.packetType)
+		{
+			case PacketType::JoinRequest:
+			{
+				if(received != sizeof(JoinRequestPacket))
+					continue;
+				
+				JoinRequestPacket packet{};
+				std::memcpy(&packet, buffer, sizeof(JoinRequestPacket));
+				handleJoinRequestPacket(packet, sender, static_cast<std::uint16_t>(senderPort));
+				break;
+			}
+			
+			case PacketType::PlayerInput:
+			{
+				if(received != sizeof(PlayerInputPacket))
+					continue;
+				
+				PlayerInputPacket packet{};
+				std::memcpy(&packet, buffer, sizeof(PlayerInputPacket));
+				handlePlayerInputPacket(packet, sender, static_cast<std::uint16_t>(senderPort));
+				break;
+			}
+			
+			default:
+				break;
+		}
+	}
+}
+
+
 bool NetHost::pollJoinRequest(sf::IpAddress& outAddress, std::uint16_t& outPort)
 {
-	std::uint8_t buffer[256];
-	std::size_t received = 0;
-	sf::IpAddress sender;
-	unsigned short senderPort = 0;
-	
-	const sf::Socket::Status status =
-	m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
-	
-	if(status != sf::Socket::Done)
+	if(m_pendingJoinRequests.empty())
 		return false;
 	
-	if(received != sizeof(JoinRequestPacket))
-		return false;
+	const PendingJoinRequest request = m_pendingJoinRequests.front();
+	m_pendingJoinRequests.pop_front();
 	
-	JoinRequestPacket packet{};
-	std::memcpy(&packet, buffer, sizeof(JoinRequestPacket));
-	
-	if(packet.header.protocolVersion != NetGame::ProtocolVersion)
-		return false;
-	
-	if(packet.header.packetType != PacketType::JoinRequest)
-		return false;
-	
-	outAddress = sender;
-	outPort = static_cast<std::uint16_t>(senderPort);
+	outAddress = request.address;
+	outPort = request.port;
 	
 	return true;
 }
@@ -84,37 +133,11 @@ bool NetHost::sendJoinAccept(const sf::IpAddress& address, std::uint16_t port, c
 
 bool NetHost::pollPlayerInput(PlayerInputPacket& outPacket)
 {
-	std::uint8_t buffer[256];
-	std::size_t received = 0;
-	sf::IpAddress sender;
-	unsigned short senderPort = 0;
-	
-	const sf::Socket::Status status =
-	m_socket.receive(buffer, sizeof(buffer), received, sender, senderPort);
-	
-	if(status != sf::Socket::Done)
+	if(m_pendingPlayerInputs.empty())
 		return false;
 	
-	if(received != sizeof(PlayerInputPacket))
-		return false;
-	
-	PlayerInputPacket packet{};
-	std::memcpy(&packet, buffer, sizeof(PlayerInputPacket));
-	
-	if(packet.header.protocolVersion != NetGame::ProtocolVersion)
-		return false;
-	
-	if(packet.header.packetType != PacketType::PlayerInput)
-		return false;
-	
-	RemotePeer* peer = findPeerByEndpoint(sender, static_cast<std::uint16_t>(senderPort));
-	if(peer == nullptr)
-		return false;
-	
-	if(packet.peerId != peer->peerId)
-		return false;
-	
-	outPacket = packet;
+	outPacket = m_pendingPlayerInputs.front();
+	m_pendingPlayerInputs.pop_front();
 	
 	return true;
 }
@@ -152,7 +175,7 @@ bool NetHost::registerPeer(const sf::IpAddress& address, std::uint16_t port,
 		peer.port = port;
 		
 		m_lastStatusMessage = "Client connected: " + address.toString() +
-								":" + std::to_string(port);
+		":" + std::to_string(port);
 		
 		return true;
 	}
@@ -172,6 +195,40 @@ void NetHost::unregisterPeer(std::uint32_t peerId)
 const std::array<NetHost::RemotePeer, NetGame::MaxPlayers>& NetHost::getPeers() const
 {
 	return m_peers;
+}
+
+
+void NetHost::handleJoinRequestPacket(const JoinRequestPacket& packet,
+									  const sf::IpAddress& sender,
+									  std::uint16_t senderPort)
+{
+	(void)packet;
+	
+	if(findPeerByEndpoint(sender, senderPort) != nullptr)
+		return;
+	
+	if(hasPendingJoinRequest(sender, senderPort))
+		return;
+	
+	PendingJoinRequest request{};
+	request.address = sender;
+	request.port = senderPort;
+	m_pendingJoinRequests.push_back(request);
+}
+
+
+void NetHost::handlePlayerInputPacket(const PlayerInputPacket& packet,
+									  const sf::IpAddress& sender,
+									  std::uint16_t senderPort)
+{
+	RemotePeer* peer = findPeerByEndpoint(sender, senderPort);
+	if(peer == nullptr)
+		return;
+	
+	if(packet.peerId != peer->peerId)
+		return;
+	
+	m_pendingPlayerInputs.push_back(packet);
 }
 
 
@@ -196,6 +253,18 @@ NetHost::RemotePeer* NetHost::findPeerByPeerId(std::uint32_t peerId)
 	}
 	
 	return nullptr;
+}
+
+
+bool NetHost::hasPendingJoinRequest(const sf::IpAddress& address, std::uint16_t port) const
+{
+	for(const PendingJoinRequest& request : m_pendingJoinRequests)
+	{
+		if(request.address == address && request.port == port)
+			return true;
+	}
+	
+	return false;
 }
 
 
